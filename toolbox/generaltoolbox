@@ -1,7 +1,6 @@
 import math
 import numpy as np
 import numpy.linalg as npla
-import toolbox.matrixtoolbox as mtb
 from itertools import product
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -443,6 +442,8 @@ class generaltoolbox:
         #determined by the neighborhoodRange variable. Finally, the speed variable allows
         #for potentially faster convergence (if speed>1) or more steady convergence
         #(if speed<1)
+        from toolbox.matrixtoolbox.matrixtoolbox import jacobian
+        from toolbox.matrixtoolbox.matrixtoolbox import lu
         try:
             dim=len(start)
         except TypeError:
@@ -464,8 +465,8 @@ class generaltoolbox:
             diff=[]
             count=0
             while count<maxlevel and sum([f(vect,*args,**kwargs)[j]**2 for j in range(fdim)])>errtol**2:
-                A=mtb.jacobian(f,vect,args=args,kwargs=kwargs)
-                inv=mtb.LU(A,-np.array(f(vect,*args,**kwargs)))
+                A=jacobian(f,vect,args=args,kwargs=kwargs)
+                inv=lu(A,-np.array(f(vect,*args,**kwargs)))
                 if len(inv)>0:
                     diff=speed*inv
                     vect=vect+diff
