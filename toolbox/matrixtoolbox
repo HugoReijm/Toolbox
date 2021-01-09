@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.linalg as npla
-import toolbox.generaltoolbox as gtb
 
 class matrixtoolbox:
 
@@ -9,6 +8,7 @@ class matrixtoolbox:
         #This method approximates the Jacobian of a multidimensional function f with
         #multidimensional input vector vect. Variable h is the step size used to
         #approximate the derivative.
+        from toolbox.generaltoolbox.generaltoolbox import differentiate
         if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
             dim=1
         elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
@@ -22,9 +22,9 @@ class matrixtoolbox:
         
         res=f(vect,*args,**kwargs)
         if ("int" in type(res).__name__) or ("float" in type(res).__name__):
-            return np.array([[gtb.differentiate(f,vect,variableDim=i) for i in range(dim)]])
+            return np.array([[differentiate(f,vect,variableDim=i) for i in range(dim)]])
         elif ("list" in type(res).__name__) or ("tuple" in type(res).__name__) or ("ndarray" in type(res).__name__):
-            return np.array([[gtb.differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variableDim=j) for j in range(dim)] for i in range(len(res))])
+            return np.array([[differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variableDim=j) for j in range(dim)] for i in range(len(res))])
         else:
             print("Error: Function output is of incompatible type %s"%type(res).__name__)
             return [[]]
