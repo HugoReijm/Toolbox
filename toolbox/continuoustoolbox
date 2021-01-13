@@ -117,9 +117,13 @@ class continuoustoolbox:
                 else:
                     voided.append(j)
             if len(voided)>0:
-                nullspace=np.transpose(spla.null_space(np.array([vects[a] for a in adjusted])))
-                for j in range(len(voided)):
-                    vects[voided[j]]=dist*nullspace[j]/npla.norm(nullspace[j])+vect0
+                if len(adjusted)>0:
+                    nullspace=np.transpose(spla.null_space(np.array([vects[a] for a in adjusted])))
+                    for j in range(len(voided)):
+                        vects[voided[j]]=dist*nullspace[j]/npla.norm(nullspace[j])+vect0
+                else:
+                    for j in range(K):
+                        vects[j]=np.array([0 for k in range(j)]+[dist]+[0 for k in range(j+1,dim)])+vect0
         
         lmbda=[]
         if counts[0]!=0:
