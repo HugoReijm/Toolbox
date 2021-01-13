@@ -85,6 +85,7 @@ class discretetoolbox:
                                 plotLambda[j].append(Lambda[j]/i-Lambda[j-1]/i)
                 else:
                     if plotbool:
+                        counts[j]+=1
                         plotLambda[j].append(plotLambda[j][len(plotLambda[j])-1])
                         
             orthonormals=mtb.grammSchmidt([vects[j]-vect0 for j in range(K)],normalize=True,tol=min(dist*1e-3,1e-3),clean=False)
@@ -97,9 +98,13 @@ class discretetoolbox:
                 else:
                     voided.append(j)
             if len(voided)>0:
-                nullspace=np.transpose(spla.null_space(np.array([vects[a] for a in adjusted])))
-                for j in range(len(voided)):
-                    vects[voided[j]]=dist*nullspace[j]/npla.norm(nullspace[j])+vect0
+                if len(adjusted)>0:
+                    nullspace=np.transpose(spla.null_space(np.array([vects[a] for a in adjusted])))
+                    for j in range(len(voided)):
+                        vects[voided[j]]=dist*nullspace[j]/npla.norm(nullspace[j])+vect0
+                else:
+                    for j in range(K):
+                        vects[j]=np.array([0 for k in range(j)]+[dist]+[0 for k in range(j+1,dim)])+vect0
         
         lmbda=[]
         if counts[0]!=0:
