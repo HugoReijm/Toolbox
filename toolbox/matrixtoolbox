@@ -1,405 +1,395 @@
 import numpy as np
 import numpy.linalg as npla
 
-class matrixtoolbox:
+def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
+    #This method approximates the Jacobian of a multidimensional function f with
+    #multidimensional input vector vect. Variable h is the step size used to
+    #approximate the derivative.
+    from toolbox.generaltoolbox import differentiate
+    if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
+        dim=1
+    elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
+        dim=len(vect)
+    else:
+        print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
+        return [[]]
 
-    @staticmethod
-    def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
-        #This method approximates the Jacobian of a multidimensional function f with
-        #multidimensional input vector vect. Variable h is the step size used to
-        #approximate the derivative.
-        from toolbox.generaltoolbox.generaltoolbox import differentiate
-        if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
-            dim=1
-        elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
-            dim=len(vect)
-        else:
-            print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
-            return [[]]
-        
-        if not isinstance(vect,np.ndarray):
-            vect=np.array(vect)
-        
-        res=f(vect,*args,**kwargs)
-        if ("int" in type(res).__name__) or ("float" in type(res).__name__):
-            return np.array([[differentiate(f,vect,variableDim=i) for i in range(dim)]])
-        elif ("list" in type(res).__name__) or ("tuple" in type(res).__name__) or ("ndarray" in type(res).__name__):
-            return np.array([[differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variableDim=j) for j in range(dim)] for i in range(len(res))])
-        else:
-            print("Error: Function output is of incompatible type %s"%type(res).__name__)
-            return [[]]
-        
-    @staticmethod
-    def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
-        #This method performs Gramm Schmidt orthogonalization on a set of vectors.
-        #Variable tol controls the tolerance for when to a vector orthogonalizable 
-        #or not (depends on norm of vector). Variable normalize renormalizes each 
-        #other the orthogonalized vectors. Variable clean removes any vectors that 
-        #do not meet the orthogonalization tolerance.
-        size=len(vectors)
-        for i in range(size-1,-1,-1):
-            try:
-                if not isinstance(vectors[i],np.ndarray):
-                    vectors[i]=np.array(vectors[i])
-            except:
-                print("Number %i of the inputted vectors can not be converted to a numpy array"%i)
-                return vectors
-        
-        if any([len(vectors[i])!=len(vectors[i+1]) for i in range(size-1)]):
-            print("Not all inputted vectors are the same size")
+    if not isinstance(vect,np.ndarray):
+        vect=np.array(vect)
+
+    res=f(vect,*args,**kwargs)
+    if ("int" in type(res).__name__) or ("float" in type(res).__name__):
+        return np.array([[differentiate(f,vect,variableDim=i) for i in range(dim)]])
+    elif ("list" in type(res).__name__) or ("tuple" in type(res).__name__) or ("ndarray" in type(res).__name__):
+        return np.array([[differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variableDim=j) for j in range(dim)] for i in range(len(res))])
+    else:
+        print("Error: Function output is of incompatible type %s"%type(res).__name__)
+        return [[]]
+
+def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
+    #This method performs Gramm Schmidt orthogonalization on a set of vectors.
+    #Variable tol controls the tolerance for when to a vector orthogonalizable 
+    #or not (depends on norm of vector). Variable normalize renormalizes each 
+    #other the orthogonalized vectors. Variable clean removes any vectors that 
+    #do not meet the orthogonalization tolerance.
+    size=len(vectors)
+    for i in range(size-1,-1,-1):
+        try:
+            if not isinstance(vectors[i],np.ndarray):
+                vectors[i]=np.array(vectors[i])
+        except:
+            print("Number %i of the inputted vectors can not be converted to a numpy array"%i)
             return vectors
-        dim=len(vectors[0])
-        
-        orthogonals=[vectors[0]]
-        norms=[npla.norm(vectors[0])]
-        if norms[0]<tol:
-            orthogonals[0]=np.zeros(dim)
-            norms[0]=-1
-        for i in range(1,size):
-            if npla.norm(vectors[i])<tol:
+
+    if any([len(vectors[i])!=len(vectors[i+1]) for i in range(size-1)]):
+        print("Not all inputted vectors are the same size")
+        return vectors
+    dim=len(vectors[0])
+
+    orthogonals=[vectors[0]]
+    norms=[npla.norm(vectors[0])]
+    if norms[0]<tol:
+        orthogonals[0]=np.zeros(dim)
+        norms[0]=-1
+    for i in range(1,size):
+        if npla.norm(vectors[i])<tol:
+            orthogonals.append(np.zeros(dim))
+            norms.append(-1)
+        else:
+            ortho=vectors[i]-sum([np.inner(orthogonals[j],vectors[i])*orthogonals[j]/norms[j]**2 for j in range(i)])
+            norm=npla.norm(ortho)
+            if norm>=tol:
+                orthogonals.append(ortho)
+                norms.append(norm)
+            else:
                 orthogonals.append(np.zeros(dim))
                 norms.append(-1)
-            else:
-                ortho=vectors[i]-sum([np.inner(orthogonals[j],vectors[i])*orthogonals[j]/norms[j]**2 for j in range(i)])
-                norm=npla.norm(ortho)
-                if norm>=tol:
-                    orthogonals.append(ortho)
-                    norms.append(norm)
-                else:
-                    orthogonals.append(np.zeros(dim))
-                    norms.append(-1)
-    
-        if normalize:
-            for i in range(size):
-                if norms[i]!=-1:
-                    orthogonals[i]=orthogonals[i]/norms[i]
-                
-        if clean:
-            for i in range(size-1,-1,-1):
-                if norms[i]==-1:
-                    del orthogonals[i]
-                
-        return orthogonals
-    
-    @staticmethod
-    def jacobi(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
-        #This method implements the (weighted) Jacobi iterative matrix solver for 
-        #nonsingular, square matrices. It attempts to solve the equation Ax=b. 
-        #Variable errtol controls the tolerance for when approximation is
-        #close enough to a solution. Variable maxlevel controls the maximal number
-        #of iterations the method can perform. Variable x0 provides an optional 
-        #first guess at the solution. Variable omega allows for the optional weighted
-        #Jacobi iterative matrix solver, potentially increasing rate of convergence.
-        #Variable inform allows the user to receive information about the process
-        #(for verification purposes).
-        n=A.shape[0]
-        if A.shape[0]!=A.shape[1]:
-            if inform:
-                print("Matrix A is not square, Jacobi can not be applied")
-            return np.zeros((A.shape[1],))
-        if any([e==0.0 for e in npla.eigvals(A)]):
-            if inform:
-                print("Matrix A is singular, Jacobi can not be applied")
-            return np.zeros((A.shape[1],))
+
+    if normalize:
+        for i in range(size):
+            if norms[i]!=-1:
+                orthogonals[i]=orthogonals[i]/norms[i]
+
+    if clean:
+        for i in range(size-1,-1,-1):
+            if norms[i]==-1:
+                del orthogonals[i]
+
+    return orthogonals
+
+def jacobi(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
+    #This method implements the (weighted) Jacobi iterative matrix solver for 
+    #nonsingular, square matrices. It attempts to solve the equation Ax=b. 
+    #Variable errtol controls the tolerance for when approximation is
+    #close enough to a solution. Variable maxlevel controls the maximal number
+    #of iterations the method can perform. Variable x0 provides an optional 
+    #first guess at the solution. Variable omega allows for the optional weighted
+    #Jacobi iterative matrix solver, potentially increasing rate of convergence.
+    #Variable inform allows the user to receive information about the process
+    #(for verification purposes).
+    n=A.shape[0]
+    if A.shape[0]!=A.shape[1]:
+        if inform:
+            print("Matrix A is not square, Jacobi can not be applied")
+        return np.zeros((A.shape[1],))
+    if any([e==0.0 for e in npla.eigvals(A)]):
+        if inform:
+            print("Matrix A is singular, Jacobi can not be applied")
+        return np.zeros((A.shape[1],))
+    else:
+        if x0!=None:
+            x=x0.copy()
         else:
-            if x0!=None:
-                x=x0.copy()
-            else:
-                x=np.array([1.0/n for i in range(n)])
-            r=2.0*errtol
-            k=0
-            while r>errtol and k<maxlevel:
-                xtemp=x.copy()
-                for i in range(n):
-                    sigma=0.0
-                    for j in range(n):
-                        if j!=i:
-                            sigma+=A[i][j]*xtemp[j]
-                    x[i]=(1.0-omega)*xtemp[i]+omega*(b[i]-sigma)/A[i][i]
-                k+=1
-                r=npla.norm(np.dot(A,x)-b)
-            if inform:
-                print("Jacobi Method Performance Data:")
-                if k>=maxlevel:
-                    print("Number of iterations (Max Number of Iterations Reached): %i" % k)
-                else:
-                    print("Number of iterations: %i" % k)
-                print("Error: %.6f" % npla.norm(np.dot(A,x)-b))
-            return x
-    
-    @staticmethod
-    def sor(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
-        #This method implements the (weighted) Successive Over-Relaxation iterative
-        #matrix solver for nonsingular, square matrices. It attempts to solve the 
-        #equation Ax=b. Variable errtol controls the tolerance for when 
-        #approximation is close enough to a solution. Variable maxlevel controls 
-        #the maximal number of iterations the method can perform. Variable x0 provides
-        #an optional first guess at the solution. Variable omega allows for the 
-        #optional weighted Successive Over-Relaxation iterative matrix solver, 
-        #potentially increasing rate of convergence. Variable inform allows the user
-        #to receive information about the process (for verification purposes).
-        n=A.shape[0]
-        if A.shape[0]!=A.shape[1]:
-            if inform:
-                print("Matrix A is not square, SOR(%0.2f) can not be applied")
-            return np.zeros((A.shape[1],))
-        if any([e==0.0 for e in npla.eigvals(A)]):
-            if inform:
-                print("Matrix A is singular, SOR(%0.2f) can not be applied")
-            return np.zeros((A.shape[1],))
-        else:
-            if x0!=None:
-                x=x0.copy()
-            else:
-                x=np.array([1.0/n for i in range(n)])
-            r=2.0*errtol
-            k=0
-            while r>errtol and k<maxlevel:
-                for i in range(n):
-                    sigma=0.0
-                    for j in range(n):
-                        if j!=i:
-                            sigma+=A[i][j]*x[j]
-                    x[i]=(1.0-omega)*x[i]+omega*(b[i]-sigma)/A[i][i]
-                k+=1
-                r=npla.norm(np.dot(A,x)-b)
-            if inform:
-                print("SOR(%0.2f) Performance Data:"%omega)
-                if k>=maxlevel:
-                    print("Number of iterations (Max Number of Iterations Reached): %i" % k)
-                else:
-                    print("Number of iterations: %i" % k)
-                print("Error: %.6f" % npla.norm(np.dot(A,x)-b))
-            return x
-    
-    @staticmethod
-    def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
-        #This method implements the Conjugate Gradient iterative matrix solver for 
-        #Symmetric Positive Definite (SPD) matrices. It attempts to solve the 
-        #equation Ax=b. Variable errtol controls the tolerance for when 
-        #approximation is close enough to a solution. Variable maxlevel controls 
-        #the maximal number of iterations the method can perform. Variable x0 provides
-        #an optional first guess at the solution. Variable inform allows the user
-        #to receive information about the process (for verification purposes).
-        n=A.shape[0]
-        spdbool=False
-        if (np.array_equal(A,A.T)):
-            eigvals=npla.eigvals(A)
-            spdbool=all([eigvals[i]>0.0 for i in range(n)])
-        if not spdbool:
-            if inform:
-                print("Matrix A is not SPD, CG can not be applied")
-            return np.zeros((A.shape[1],))
-        else:
-            if x0!=None:
-                x=x0.copy()
-            else:
-                x=np.array([1.0/n for i in range(n)])
-            r=b-A.dot(x)
-            p=r.copy()
-            k=0
-            while npla.norm(r)>errtol and k<maxlevel:
-                v=A.dot(p)
-                alpha=np.inner(r,r)/np.inner(p,v)
-                x=x+alpha*p
-                r=r-alpha*v
-                beta=np.inner(r,r)/np.inner(r+alpha*v,r+alpha+v)
-                p=r+beta*p
-                k+=1
-            if inform:
-                print("Conjugate Gradient Method Performance Data:")
-                if k >= maxlevel:
-                    print("Number of iterations (Max Number of Iterations Reached): %i" % k)
-                else:
-                    print("Number of iterations: %i" % k)
-                print("Error: %.6f" % npla.norm(np.dot(A, x) - b))
-            return x
-    
-    @staticmethod
-    def lu(A,b,tol=1e-6,symbol=False,inform=False):
-        #This method implements the general LU Decomposition matrix solver.
-        #It attempts to solve the equation Ax=b. The variable tol controls the 
-        #tolerance of what is to be considered zero or not. Variable symbol allows 
-        #for the solving of matrix-vector equations involving symbols.Variable 
-        #inform allows the user to receive information about the process 
-        #(for verification purposes).
-        if not isinstance(A,np.ndarray):
-            A=np.array(A)
-        if not isinstance(b,np.ndarray):
-            b=np.array(b)
-        if len(A.shape)==2 and len(b.shape)==1 and A.shape[0]==b.shape[0]:
-            if A.shape[0]>A.shape[1] and inform:
-                print("More equations than variables; reducing number of equations")
-            Acopy=A[0:min(A.shape[0],A.shape[1])].copy()
-            bcopy=b[0:min(A.shape[0],A.shape[1])].copy()
-            n,m=Acopy.shape
-            if tol<0:
-                tol=abs(tol)
-            pivots=[]
-            if symbol:
-                from sympy import eye
-                from sympy import zeros
-                from sympy import simplify
-                from sympy import Matrix
-                L=eye(n)
-            else:
-                L=np.identity(n)
-            for k in range(n-1):
-                pivot=-1
-                for i in range(k,m):
-                    if (not symbol and abs(Acopy[k][i])>tol) or (symbol and Acopy[k][i]!=0):
-                        pivot=i
-                        break
-                    else:
-                        if Acopy[k][i]!=0:
-                            Acopy[k][i]=0.0
-                        switchedbool=False
-                        for j in range(k+1,n):
-                            if (not symbol and abs(Acopy[j][i])>tol) or (symbol and Acopy[j][i]!=0):
-                                temp=Acopy[k].copy()
-                                Acopy[k]=Acopy[j]
-                                Acopy[j]=temp
-                                temp=bcopy[k]
-                                bcopy[k]=bcopy[j]
-                                bcopy[j]=temp
-                                if symbol:
-                                    temp=L[k,:]
-                                    L[k,:]=L[j,:]
-                                    L[j,:]=temp
-                                    temp=L[:,k]
-                                    L[:,k]=L[:,j]
-                                    L[:,j]=temp
-                                else:
-                                    temp=L[k].copy()
-                                    L[k]=L[j]
-                                    L[j]=temp
-                                    temp=L[:,k].copy()
-                                    L[:,k]=L[:,j]
-                                    L[:,j]=temp
-                                pivot=i
-                                switchedbool=True
-                                break
-                            elif Acopy[j][i]!=0:
-                                Acopy[j][i]=0.0
-                        if switchedbool:
-                            break
-                if pivot!=-1:
-                    pivots.append(pivot)
-                    for i in range(k+1,n):
-                        if (not symbol and abs(Acopy[i][pivot])>tol) or (symbol and Acopy[i][pivot]!=0):
-                            if symbol:
-                                L[i,pivot]=simplify(Acopy[i][pivot]/Acopy[k][pivot])
-                            else:
-                                L[i][pivot]=Acopy[i][pivot]/Acopy[k][pivot]
-                            Acopy[i][pivot]=0.0
-                            for j in range(pivot+1,m):
-                                if (not symbol and abs(Acopy[k][j])>tol) or (symbol and Acopy[k][j]!=0):
-                                    if symbol:
-                                        Acopy[i][j]=simplify(Acopy[i][j]-L[i,k]*Acopy[k][j])
-                                    else:
-                                        Acopy[i][j]=Acopy[i][j]-L[i][k]*Acopy[k][j]
-                                elif Acopy[k][j]!=0:
-                                    Acopy[k][j]=0.0
-                        elif Acopy[i][pivot]!=0:
-                            Acopy[i][pivot]=0.0
-            for i in range(n-1,m):
-                if (not symbol and abs(Acopy[n-1][i])>tol) or (symbol and Acopy[n-1][i]!=0):
-                    pivots.append(n-1)
-                    break
-                elif Acopy[n-1][i]!=0:
-                    Acopy[n-1][i]=0.0
-            if inform:
-                free=[i for i in range(m) if i not in pivots]
-                print("Lower Triangular Matrix P*L:")
-                if symbol:
-                    for i in range(n):
-                        if i==0:
-                            print("[["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
-                        elif i==n-1:
-                            print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]]")
-                        else:
-                            print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
-                else:
-                    print(L)
-                print()
-                print("Upper Triangular Matrix U:")
-                print(Acopy)
-                print()
-                print("Vector P*b:")
-                print(bcopy)
-                print()
-                if len(free)>0:
-                    print("System has potentially infinite solutions; choosing one solution")
-                
-            if symbol:
-                y=zeros(1,n)
-            else:
-                y=np.zeros(n)
+            x=np.array([1.0/n for i in range(n)])
+        r=2.0*errtol
+        k=0
+        while r>errtol and k<maxlevel:
+            xtemp=x.copy()
             for i in range(n):
-                if symbol:
-                    y[i]=simplify((bcopy[i]-sum([L[i,j]*y[j] for j in range(i)]))/L[i,i])
+                sigma=0.0
+                for j in range(n):
+                    if j!=i:
+                        sigma+=A[i][j]*xtemp[j]
+                x[i]=(1.0-omega)*xtemp[i]+omega*(b[i]-sigma)/A[i][i]
+            k+=1
+            r=npla.norm(np.dot(A,x)-b)
+        if inform:
+            print("Jacobi Method Performance Data:")
+            if k>=maxlevel:
+                print("Number of iterations (Max Number of Iterations Reached): %i" % k)
+            else:
+                print("Number of iterations: %i" % k)
+            print("Error: %.6f" % npla.norm(np.dot(A,x)-b))
+        return x
+
+def sor(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
+    #This method implements the (weighted) Successive Over-Relaxation iterative
+    #matrix solver for nonsingular, square matrices. It attempts to solve the 
+    #equation Ax=b. Variable errtol controls the tolerance for when 
+    #approximation is close enough to a solution. Variable maxlevel controls 
+    #the maximal number of iterations the method can perform. Variable x0 provides
+    #an optional first guess at the solution. Variable omega allows for the 
+    #optional weighted Successive Over-Relaxation iterative matrix solver, 
+    #potentially increasing rate of convergence. Variable inform allows the user
+    #to receive information about the process (for verification purposes).
+    n=A.shape[0]
+    if A.shape[0]!=A.shape[1]:
+        if inform:
+            print("Matrix A is not square, SOR(%0.2f) can not be applied")
+        return np.zeros((A.shape[1],))
+    if any([e==0.0 for e in npla.eigvals(A)]):
+        if inform:
+            print("Matrix A is singular, SOR(%0.2f) can not be applied")
+        return np.zeros((A.shape[1],))
+    else:
+        if x0!=None:
+            x=x0.copy()
+        else:
+            x=np.array([1.0/n for i in range(n)])
+        r=2.0*errtol
+        k=0
+        while r>errtol and k<maxlevel:
+            for i in range(n):
+                sigma=0.0
+                for j in range(n):
+                    if j!=i:
+                        sigma+=A[i][j]*x[j]
+                x[i]=(1.0-omega)*x[i]+omega*(b[i]-sigma)/A[i][i]
+            k+=1
+            r=npla.norm(np.dot(A,x)-b)
+        if inform:
+            print("SOR(%0.2f) Performance Data:"%omega)
+            if k>=maxlevel:
+                print("Number of iterations (Max Number of Iterations Reached): %i" % k)
+            else:
+                print("Number of iterations: %i" % k)
+            print("Error: %.6f" % npla.norm(np.dot(A,x)-b))
+        return x
+
+def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
+    #This method implements the Conjugate Gradient iterative matrix solver for 
+    #Symmetric Positive Definite (SPD) matrices. It attempts to solve the 
+    #equation Ax=b. Variable errtol controls the tolerance for when 
+    #approximation is close enough to a solution. Variable maxlevel controls 
+    #the maximal number of iterations the method can perform. Variable x0 provides
+    #an optional first guess at the solution. Variable inform allows the user
+    #to receive information about the process (for verification purposes).
+    n=A.shape[0]
+    spdbool=False
+    if (np.array_equal(A,A.T)):
+        eigvals=npla.eigvals(A)
+        spdbool=all([eigvals[i]>0.0 for i in range(n)])
+    if not spdbool:
+        if inform:
+            print("Matrix A is not SPD, CG can not be applied")
+        return np.zeros((A.shape[1],))
+    else:
+        if x0!=None:
+            x=x0.copy()
+        else:
+            x=np.array([1.0/n for i in range(n)])
+        r=b-A.dot(x)
+        p=r.copy()
+        k=0
+        while npla.norm(r)>errtol and k<maxlevel:
+            v=A.dot(p)
+            alpha=np.inner(r,r)/np.inner(p,v)
+            x=x+alpha*p
+            r=r-alpha*v
+            beta=np.inner(r,r)/np.inner(r+alpha*v,r+alpha+v)
+            p=r+beta*p
+            k+=1
+        if inform:
+            print("Conjugate Gradient Method Performance Data:")
+            if k >= maxlevel:
+                print("Number of iterations (Max Number of Iterations Reached): %i" % k)
+            else:
+                print("Number of iterations: %i" % k)
+            print("Error: %.6f" % npla.norm(np.dot(A, x) - b))
+        return x
+
+def lu(A,b,tol=1e-6,symbol=False,inform=False):
+    #This method implements the general LU Decomposition matrix solver.
+    #It attempts to solve the equation Ax=b. The variable tol controls the 
+    #tolerance of what is to be considered zero or not. Variable symbol allows 
+    #for the solving of matrix-vector equations involving symbols.Variable 
+    #inform allows the user to receive information about the process 
+    #(for verification purposes).
+    if not isinstance(A,np.ndarray):
+        A=np.array(A)
+    if not isinstance(b,np.ndarray):
+        b=np.array(b)
+    if len(A.shape)==2 and len(b.shape)==1 and A.shape[0]==b.shape[0]:
+        if A.shape[0]>A.shape[1] and inform:
+            print("More equations than variables; reducing number of equations")
+        Acopy=A[0:min(A.shape[0],A.shape[1])].copy()
+        bcopy=b[0:min(A.shape[0],A.shape[1])].copy()
+        n,m=Acopy.shape
+        if tol<0:
+            tol=abs(tol)
+        pivots=[]
+        if symbol:
+            from sympy import eye
+            from sympy import zeros
+            from sympy import simplify
+            from sympy import Matrix
+            L=eye(n)
+        else:
+            L=np.identity(n)
+        for k in range(n-1):
+            pivot=-1
+            for i in range(k,m):
+                if (not symbol and abs(Acopy[k][i])>tol) or (symbol and Acopy[k][i]!=0):
+                    pivot=i
+                    break
                 else:
-                    y[i]=(bcopy[i]-sum([L[i][j]*y[j] for j in range(i)]))/L[i][i]
-            
-            if symbol:
-                x=zeros(1,m)
-            else:
-                x=np.zeros(m)
-            for i in range(n,m):
-                x[i]=1
-            for i in range(n-1,-1,-1):
-                pivot=-1
-                empty=True
-                for j in range(i,m):
-                    if (not symbol and abs(Acopy[i][j])>tol) or (symbol and Acopy[i][j]!=0):
-                        if j!=i:
-                            x[i]=1
-                        pivot=j
-                        empty=False
+                    if Acopy[k][i]!=0:
+                        Acopy[k][i]=0.0
+                    switchedbool=False
+                    for j in range(k+1,n):
+                        if (not symbol and abs(Acopy[j][i])>tol) or (symbol and Acopy[j][i]!=0):
+                            temp=Acopy[k].copy()
+                            Acopy[k]=Acopy[j]
+                            Acopy[j]=temp
+                            temp=bcopy[k]
+                            bcopy[k]=bcopy[j]
+                            bcopy[j]=temp
+                            if symbol:
+                                temp=L[k,:]
+                                L[k,:]=L[j,:]
+                                L[j,:]=temp
+                                temp=L[:,k]
+                                L[:,k]=L[:,j]
+                                L[:,j]=temp
+                            else:
+                                temp=L[k].copy()
+                                L[k]=L[j]
+                                L[j]=temp
+                                temp=L[:,k].copy()
+                                L[:,k]=L[:,j]
+                                L[:,j]=temp
+                            pivot=i
+                            switchedbool=True
+                            break
+                        elif Acopy[j][i]!=0:
+                            Acopy[j][i]=0.0
+                    if switchedbool:
                         break
-                    elif Acopy[i][j]!=0:
-                        Acopy[i][j]=0.0
-                if empty:
-                    if y[i]==0:
-                        continue
-                    else:
-                        if inform:
-                            print("Matrix equation does not have a solution")
-                        return []
-                if pivot!=-1:
-                    if symbol:
-                        x[pivot]=simplify((y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot])
-                    else:
-                        x[pivot]=(y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot]
-                
+            if pivot!=-1:
+                pivots.append(pivot)
+                for i in range(k+1,n):
+                    if (not symbol and abs(Acopy[i][pivot])>tol) or (symbol and Acopy[i][pivot]!=0):
+                        if symbol:
+                            L[i,pivot]=simplify(Acopy[i][pivot]/Acopy[k][pivot])
+                        else:
+                            L[i][pivot]=Acopy[i][pivot]/Acopy[k][pivot]
+                        Acopy[i][pivot]=0.0
+                        for j in range(pivot+1,m):
+                            if (not symbol and abs(Acopy[k][j])>tol) or (symbol and Acopy[k][j]!=0):
+                                if symbol:
+                                    Acopy[i][j]=simplify(Acopy[i][j]-L[i,k]*Acopy[k][j])
+                                else:
+                                    Acopy[i][j]=Acopy[i][j]-L[i][k]*Acopy[k][j]
+                            elif Acopy[k][j]!=0:
+                                Acopy[k][j]=0.0
+                    elif Acopy[i][pivot]!=0:
+                        Acopy[i][pivot]=0.0
+        for i in range(n-1,m):
+            if (not symbol and abs(Acopy[n-1][i])>tol) or (symbol and Acopy[n-1][i]!=0):
+                pivots.append(n-1)
+                break
+            elif Acopy[n-1][i]!=0:
+                Acopy[n-1][i]=0.0
+        if inform:
+            free=[i for i in range(m) if i not in pivots]
+            print("Lower Triangular Matrix P*L:")
             if symbol:
-                error=simplify(Matrix([sum([A[i][j]*x[j] for j in range(len(A[i]))])-b[i] for i in range(len(A))]).norm())
-                if error!=0:
-                    if inform:
-                        print("Matrix equation may not have a solution; please check yourself")
-                        print("L Error: %s" % simplify(Matrix([sum([L[i,j]*y[j] for j in range(L.shape[0])])-bcopy[i] for i in range(L.shape[1])]).norm()))
-                        print("U Error: %s" % simplify(Matrix([sum([Acopy[i,j]*x[j] for j in range(Acopy.shape[1])])-y[i] for i in range(Acopy.shape[0])]).norm()))
-                        print("Total Error: %s" % error)
-                    return x
+                for i in range(n):
+                    if i==0:
+                        print("[["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
+                    elif i==n-1:
+                        print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]]")
+                    else:
+                        print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
             else:
-                error=npla.norm(np.dot(A,x)-b)
-                if error>1e-10:
+                print(L)
+            print()
+            print("Upper Triangular Matrix U:")
+            print(Acopy)
+            print()
+            print("Vector P*b:")
+            print(bcopy)
+            print()
+            if len(free)>0:
+                print("System has potentially infinite solutions; choosing one solution")
+
+        if symbol:
+            y=zeros(1,n)
+        else:
+            y=np.zeros(n)
+        for i in range(n):
+            if symbol:
+                y[i]=simplify((bcopy[i]-sum([L[i,j]*y[j] for j in range(i)]))/L[i,i])
+            else:
+                y[i]=(bcopy[i]-sum([L[i][j]*y[j] for j in range(i)]))/L[i][i]
+
+        if symbol:
+            x=zeros(1,m)
+        else:
+            x=np.zeros(m)
+        for i in range(n,m):
+            x[i]=1
+        for i in range(n-1,-1,-1):
+            pivot=-1
+            empty=True
+            for j in range(i,m):
+                if (not symbol and abs(Acopy[i][j])>tol) or (symbol and Acopy[i][j]!=0):
+                    if j!=i:
+                        x[i]=1
+                    pivot=j
+                    empty=False
+                    break
+                elif Acopy[i][j]!=0:
+                    Acopy[i][j]=0.0
+            if empty:
+                if y[i]==0:
+                    continue
+                else:
                     if inform:
                         print("Matrix equation does not have a solution")
                     return []
-            if inform:
+            if pivot!=-1:
                 if symbol:
+                    x[pivot]=simplify((y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot])
+                else:
+                    x[pivot]=(y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot]
+
+        if symbol:
+            error=simplify(Matrix([sum([A[i][j]*x[j] for j in range(len(A[i]))])-b[i] for i in range(len(A))]).norm())
+            if error!=0:
+                if inform:
+                    print("Matrix equation may not have a solution; please check yourself")
                     print("L Error: %s" % simplify(Matrix([sum([L[i,j]*y[j] for j in range(L.shape[0])])-bcopy[i] for i in range(L.shape[1])]).norm()))
                     print("U Error: %s" % simplify(Matrix([sum([Acopy[i,j]*x[j] for j in range(Acopy.shape[1])])-y[i] for i in range(Acopy.shape[0])]).norm()))
                     print("Total Error: %s" % error)
-                else:
-                    print("L Error: %.6f" % npla.norm(np.dot(L,y)-bcopy))
-                    print("U Error %.6f" % npla.norm(np.dot(Acopy,x)-y))
-                    print("Total Error: %.6f" % error)
-            return x
+                return x
         else:
-            if inform:
-                print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
-            return []
-        
-    
+            error=npla.norm(np.dot(A,x)-b)
+            if error>1e-10:
+                if inform:
+                    print("Matrix equation does not have a solution")
+                return []
+        if inform:
+            if symbol:
+                print("L Error: %s" % simplify(Matrix([sum([L[i,j]*y[j] for j in range(L.shape[0])])-bcopy[i] for i in range(L.shape[1])]).norm()))
+                print("U Error: %s" % simplify(Matrix([sum([Acopy[i,j]*x[j] for j in range(Acopy.shape[1])])-y[i] for i in range(Acopy.shape[0])]).norm()))
+                print("Total Error: %s" % error)
+            else:
+                print("L Error: %.6f" % npla.norm(np.dot(L,y)-bcopy))
+                print("U Error %.6f" % npla.norm(np.dot(Acopy,x)-y))
+                print("Total Error: %.6f" % error)
+        return x
+    else:
+        if inform:
+            print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
+        return []
