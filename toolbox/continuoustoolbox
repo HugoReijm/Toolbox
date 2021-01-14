@@ -77,11 +77,11 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
 
         for j in range(K):
             if easy:
-                tempsol,tempt=continuoustoolbox.rk4(f,vects[j],vects[j]-np.array([1e3 for i in range(dim)]),
+                tempsol,tempt=rk4(f,vects[j],vects[j]-np.array([1e3 for i in range(dim)]),
                                   vects[j]+np.array([1e3 for i in range(dim)]),tcopy[i-1],tcopy[i],tcopy[i]-tcopy[i-1],
                                   args=args,kwargs=kwargs,adapt=False,inform=False)
             else:
-                tempsol,tempt=continuoustoolbox.rk14(f,vects[j],vects[j]-np.array([1e3 for i in range(dim)]),
+                tempsol,tempt=rk14(f,vects[j],vects[j]-np.array([1e3 for i in range(dim)]),
                                    vects[j]+np.array([1e3 for i in range(dim)]),tcopy[i-1],tcopy[i],tcopy[i]-tcopy[i-1],
                                    args=args,kwargs=kwargs,adapt=False,inform=False)
             vects[j]=np.array([tempsol[l][len(tempt)-1] for l in range(dim)])
@@ -338,28 +338,28 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
 
 def euler(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     #Explicit Euler Forward Numerical Integration Algorithm
-    a,b,c=continuoustoolbox.eulerTableau()
-    return continuoustoolbox.rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
+    a,b,c=eulerTableau()
+    return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk2(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     #Explicit Midpoint Method Numerical Integration Algorithm
-    a,b,c=continuoustoolbox.rk2Tableau()
-    return continuoustoolbox.rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
+    a,b,c=rk2Tableau()
+    return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk4(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     #Explicit RK4 Numerical Integration Algorithm
-    a,b,c=continuoustoolbox.rk4Tableau()
-    return continuoustoolbox.rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
+    a,b,c=rk4Tableau()
+    return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk12(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     #Explicit RK12(10) Numerical Integration Algorithm
-    a,b,c=continuoustoolbox.rk12Tableau()
-    return continuoustoolbox.rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
+    a,b,c=rk12Tableau()
+    return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk14(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     #Explicit RK14(12) Numerical Integration Algorithm
-    a,b,c=continuoustoolbox.rk14Tableau()
-    return continuoustoolbox.rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
+    a,b,c=rk14Tableau()
+    return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,adapt=False):
     #This method is a Verlet numerical double integration algorithm. Variable f
