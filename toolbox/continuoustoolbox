@@ -178,6 +178,7 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
     system of differential equations. Variable adapt allows for adaptive step sizes
     in the integration process, allowing for potential increased accuracy and 
     potential increased speed."""
+    
     if len(vect0)==len(start) and len(start)==len(stop):
         dim=len(vect0)
         res = np.array([float(vect0[i]) for i in range(dim)])
@@ -340,26 +341,31 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
 
 def euler(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     """Explicit Euler Forward Numerical Integration Algorithm"""
+    
     a,b,c=eulerTableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk2(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     """Explicit Midpoint Method Numerical Integration Algorithm"""
+    
     a,b,c=rk2Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk4(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     """Explicit RK4 Numerical Integration Algorithm"""
+    
     a,b,c=rk4Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk12(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     """Explicit RK12(10) Numerical Integration Algorithm"""
+    
     a,b,c=rk12Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk14(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
     """Explicit RK14(12) Numerical Integration Algorithm"""
+    
     a,b,c=rk14Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
@@ -375,6 +381,7 @@ def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,
     being plotted over negative time. Variable adapt allows for adaptive step 
     sizes in the integration process, allowing for potential increased accuracy
     and potential increased speed."""
+    
     if len(vect0)%2==0 and int(len(vect0)/2)==len(start) and len(start)==len(stop):
         dim = int(len(vect0)/2)
         vect0=np.array(vect0[0:len(vect0):2])
@@ -457,6 +464,7 @@ def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,
 
 def eulerTableau():
     """Explicit Euler Butcher Tableau"""
+    
     c=[0.0]
     b=[1.0]
     a=[[0.0]]
@@ -464,6 +472,7 @@ def eulerTableau():
 
 def rk2Tableau():
     """Explicit RK2 Butcher Tableau"""
+    
     c=[0.0,0.5]
     b=[0.0,1.0]
     a=[[0.0,0.0],[0.5,0.0]]
@@ -471,6 +480,7 @@ def rk2Tableau():
 
 def rk4Tableau():
     """Explicit RK4 Butcher Tableau"""
+    
     c = [0.0,0.5,0.5,1.0]
     b = [1.0/6.0,1.0/3.0,1.0/3.0,1.0/6.0]
     a = [[0.0,0.0,0.0,0.0],[0.5,0.0,0.0,0.0],[0.0,0.5,0.0,0.0],[0.0,0.0,1.0,0.0]]
@@ -479,6 +489,7 @@ def rk4Tableau():
 def rk12Tableau():
     """Explicit RK12(10) Butcher Tableau
     (source = http://sce.uhcl.edu/rungekutta/rk1210.txt)"""
+    
     c = np.zeros(25)
     c[1] = 0.2
     c[2] = 0.5555555555555556
@@ -704,6 +715,7 @@ def rk12Tableau():
 def rk14Tableau():
     """Explicit RK14(12) Butcher Tableau 
     (source = http://sce.uhcl.edu/rungekutta/rk1412.txt)"""
+    
     c=np.zeros(35)
     c[1] = 0.1111111111111111
     c[2] = 0.5555555555555556
