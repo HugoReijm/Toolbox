@@ -2,9 +2,10 @@ import numpy as np
 import numpy.linalg as npla
 
 def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
-    #This method approximates the Jacobian of a multidimensional function f with
-    #multidimensional input vector vect. Variable h is the step size used to
-    #approximate the derivative.
+    """This method approximates the Jacobian of a multidimensional function f with
+    multidimensional input vector vect. Variable h is the step size used to
+    approximate the derivative."""
+    
     from toolbox.generaltoolbox import differentiate
     if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
         dim=1
@@ -27,11 +28,12 @@ def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
         return [[]]
 
 def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
-    #This method performs Gramm Schmidt orthogonalization on a set of vectors.
-    #Variable tol controls the tolerance for when to a vector orthogonalizable 
-    #or not (depends on norm of vector). Variable normalize renormalizes each 
-    #other the orthogonalized vectors. Variable clean removes any vectors that 
-    #do not meet the orthogonalization tolerance.
+    """This method performs Gramm Schmidt orthogonalization on a set of vectors.
+    Variable tol controls the tolerance for when to a vector orthogonalizable 
+    or not (depends on norm of vector). Variable normalize renormalizes each 
+    other the orthogonalized vectors. Variable clean removes any vectors that 
+    do not meet the orthogonalization tolerance."""
+    
     size=len(vectors)
     for i in range(size-1,-1,-1):
         try:
@@ -78,15 +80,16 @@ def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
     return orthogonals
 
 def jacobi(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
-    #This method implements the (weighted) Jacobi iterative matrix solver for 
-    #nonsingular, square matrices. It attempts to solve the equation Ax=b. 
-    #Variable errtol controls the tolerance for when approximation is
-    #close enough to a solution. Variable maxlevel controls the maximal number
-    #of iterations the method can perform. Variable x0 provides an optional 
-    #first guess at the solution. Variable omega allows for the optional weighted
-    #Jacobi iterative matrix solver, potentially increasing rate of convergence.
-    #Variable inform allows the user to receive information about the process
-    #(for verification purposes).
+    """This method implements the (weighted) Jacobi iterative matrix solver for 
+    nonsingular, square matrices. It attempts to solve the equation Ax=b. 
+    Variable errtol controls the tolerance for when approximation is
+    close enough to a solution. Variable maxlevel controls the maximal number
+    of iterations the method can perform. Variable x0 provides an optional 
+    first guess at the solution. Variable omega allows for the optional weighted
+    Jacobi iterative matrix solver, potentially increasing rate of convergence.
+    Variable inform allows the user to receive information about the process
+    (for verification purposes)."""
+    
     n=A.shape[0]
     if A.shape[0]!=A.shape[1]:
         if inform:
@@ -123,15 +126,16 @@ def jacobi(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
         return x
 
 def sor(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
-    #This method implements the (weighted) Successive Over-Relaxation iterative
-    #matrix solver for nonsingular, square matrices. It attempts to solve the 
-    #equation Ax=b. Variable errtol controls the tolerance for when 
-    #approximation is close enough to a solution. Variable maxlevel controls 
-    #the maximal number of iterations the method can perform. Variable x0 provides
-    #an optional first guess at the solution. Variable omega allows for the 
-    #optional weighted Successive Over-Relaxation iterative matrix solver, 
-    #potentially increasing rate of convergence. Variable inform allows the user
-    #to receive information about the process (for verification purposes).
+    """This method implements the (weighted) Successive Over-Relaxation iterative
+    matrix solver for nonsingular, square matrices. It attempts to solve the 
+    equation Ax=b. Variable errtol controls the tolerance for when 
+    approximation is close enough to a solution. Variable maxlevel controls 
+    the maximal number of iterations the method can perform. Variable x0 provides
+    an optional first guess at the solution. Variable omega allows for the 
+    optional weighted Successive Over-Relaxation iterative matrix solver, 
+    potentially increasing rate of convergence. Variable inform allows the user
+    to receive information about the process (for verification purposes)."""
+    
     n=A.shape[0]
     if A.shape[0]!=A.shape[1]:
         if inform:
@@ -167,13 +171,14 @@ def sor(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
         return x
 
 def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
-    #This method implements the Conjugate Gradient iterative matrix solver for 
-    #Symmetric Positive Definite (SPD) matrices. It attempts to solve the 
-    #equation Ax=b. Variable errtol controls the tolerance for when 
-    #approximation is close enough to a solution. Variable maxlevel controls 
-    #the maximal number of iterations the method can perform. Variable x0 provides
-    #an optional first guess at the solution. Variable inform allows the user
-    #to receive information about the process (for verification purposes).
+    """This method implements the Conjugate Gradient iterative matrix solver for 
+    Symmetric Positive Definite (SPD) matrices. It attempts to solve the 
+    equation Ax=b. Variable errtol controls the tolerance for when 
+    approximation is close enough to a solution. Variable maxlevel controls 
+    the maximal number of iterations the method can perform. Variable x0 provides
+    an optional first guess at the solution. Variable inform allows the user
+    to receive information about the process (for verification purposes)."""
+    
     n=A.shape[0]
     spdbool=False
     if (np.array_equal(A,A.T)):
@@ -209,12 +214,13 @@ def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
         return x
 
 def lu(A,b,tol=1e-6,symbol=False,inform=False):
-    #This method implements the general LU Decomposition matrix solver.
-    #It attempts to solve the equation Ax=b. The variable tol controls the 
-    #tolerance of what is to be considered zero or not. Variable symbol allows 
-    #for the solving of matrix-vector equations involving symbols.Variable 
-    #inform allows the user to receive information about the process 
-    #(for verification purposes).
+    """This method implements the general LU Decomposition matrix solver.
+    It attempts to solve the equation Ax=b. The variable tol controls the 
+    tolerance of what is to be considered zero or not. Variable symbol allows 
+    for the solving of matrix-vector equations involving symbols.Variable 
+    inform allows the user to receive information about the process 
+    (for verification purposes)."""
+    
     if not isinstance(A,np.ndarray):
         A=np.array(A)
     if not isinstance(b,np.ndarray):
