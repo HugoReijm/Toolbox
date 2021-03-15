@@ -7,12 +7,13 @@ import toolbox.generaltoolbox as gtb
 import matplotlib.pyplot as plt
 
 def poincareSection(sol,planeCoords,planeParams):
-    #This method calculates a Poincare Section of a solution of a system of
-    #differential equations onto a plane discribed by 
-    #sum([planeParams[i]*(x_i-planeCoords[i]) for i in range(dim)])=0. Including 
-    #time is not necessary here. Notice that the inputted solution must as 
-    #organized first by dimension, then by chronology.
-    #That is, sol=[[x_1,x_2,...x_n],[y_1,y_2,...y_n],...]
+    """This method calculates a Poincare Section of a solution of a system of
+    differential equations onto a plane discribed by 
+    sum([planeParams[i]*(x_i-planeCoords[i]) for i in range(dim)])=0. Including 
+    time is not necessary here. Notice that the inputted solution must as 
+    organized first by dimension, then by chronology.
+    That is, sol=[[x_1,x_2,...x_n],[y_1,y_2,...y_n],...]"""
+    
     if isinstance(planeCoords,list):
         planeCoords=np.array(planeCoords)
     if isinstance(planeParams,list):
@@ -36,17 +37,18 @@ def poincareSection(sol,planeCoords,planeParams):
     return poincareCoords
 
 def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=False,plotaxis=None,savefigName=None):
-    #This method approximates the first K values of the Lyapunov Spectrum of a 
-    #solution of a system of differential equations. Variable sol is the inputted
-    #solution (organized first by dimension, then by chronology), variable t is
-    #the corresponding time array, and variable f is the corresponding system of
-    #differential equations. Variable dist is the distance used between the 
-    #initial conditions for each trajectory in each iteration. Variable easy 
-    #controls whether the RK4 numerical integration method (easy=True) or the 
-    #RK14(12) numerical integration method (easy=False) is used. Infrastructure
-    #for plotting the convergence of each exponent is available (for visual 
-    #verification). Variable savefigName allows for tge resulting 
-    #graph to be plotted under the name <savefigName>.png.
+    """This method approximates the first K values of the Lyapunov Spectrum of a 
+    solution of a system of differential equations. Variable sol is the inputted
+    solution (organized first by dimension, then by chronology), variable t is
+    the corresponding time array, and variable f is the corresponding system of
+    differential equations. Variable dist is the distance used between the 
+    initial conditions for each trajectory in each iteration. Variable easy 
+    controls whether the RK4 numerical integration method (easy=True) or the 
+    RK14(12) numerical integration method (easy=False) is used. Infrastructure
+    for plotting the convergence of each exponent is available (for visual 
+    verification). Variable savefigName allows for tge resulting 
+    graph to be plotted under the name <savefigName>.png."""
+    
     dim=len(sol)
     solcopy=[sol[i][:-1] for i in range(dim)]
     tcopy=t[:-1]
@@ -164,18 +166,18 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
     return lmbda
 
 def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt):
-    #This method is a universal explicit Runge Kutta numerical integration 
-    #technique using Butcher Tableau a in R^2, b in R, and C in R. Variable f
-    #represents the system of differential equations while variable vect0 is the
-    #initial position of the solution. The solution is restricted by lower bound
-    #vector start and upper bound vector stop, while time is restricted between
-    #tstart and tstop, with a time step variable of deltat. Variable inform allows
-    #the user to receive information about the integration process. Variable rev
-    #reverses the direction of the solution, as if the solution is being plotted
-    #over negative time. Variable autonomous dictates whether f is an autonomous
-    #system of differential equations. Variable adapt allows for adaptive step sizes
-    #in the integration process, allowing for potential increased accuracy and 
-    #potential increased speed.
+    """This method is a universal explicit Runge Kutta numerical integration 
+    technique using Butcher Tableau a in R^2, b in R, and C in R. Variable f
+    represents the system of differential equations while variable vect0 is the
+    initial position of the solution. The solution is restricted by lower bound
+    vector start and upper bound vector stop, while time is restricted between
+    tstart and tstop, with a time step variable of deltat. Variable inform allows
+    the user to receive information about the integration process. Variable rev
+    reverses the direction of the solution, as if the solution is being plotted
+    over negative time. Variable autonomous dictates whether f is an autonomous
+    system of differential equations. Variable adapt allows for adaptive step sizes
+    in the integration process, allowing for potential increased accuracy and 
+    potential increased speed."""
     if len(vect0)==len(start) and len(start)==len(stop):
         dim=len(vect0)
         res = np.array([float(vect0[i]) for i in range(dim)])
@@ -337,42 +339,42 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
         return [], []
 
 def euler(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    #Explicit Euler Forward Numerical Integration Algorithm
+    """Explicit Euler Forward Numerical Integration Algorithm"""
     a,b,c=eulerTableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk2(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    #Explicit Midpoint Method Numerical Integration Algorithm
+    """Explicit Midpoint Method Numerical Integration Algorithm"""
     a,b,c=rk2Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk4(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    #Explicit RK4 Numerical Integration Algorithm
+    """Explicit RK4 Numerical Integration Algorithm"""
     a,b,c=rk4Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk12(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    #Explicit RK12(10) Numerical Integration Algorithm
+    """Explicit RK12(10) Numerical Integration Algorithm"""
     a,b,c=rk12Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk14(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    #Explicit RK14(12) Numerical Integration Algorithm
+    """Explicit RK14(12) Numerical Integration Algorithm"""
     a,b,c=rk14Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,adapt=False):
-    #This method is a Verlet numerical double integration algorithm. Variable f
-    #represents the system of differential equations while variable vect0 is the
-    #initial position of the solution, organized as [x_1(0),x_2(0),...x_n(0),
-    #dx_1(0)/dt,dx_2(0)/dt,...dx_n(0)/dt]. The solution is restricted by lower 
-    #bound vector start and upper bound vector stop, while time is restricted 
-    #between tstart and tstop, with a time step variable of deltat. Variable 
-    #inform allows the user to receive information about the integration process.
-    #Variable rev reverses the direction of the solution, as if the solution is
-    #being plotted over negative time. Variable adapt allows for adaptive step 
-    #sizes in the integration process, allowing for potential increased accuracy
-    #and potential increased speed.
+    """This method is a Verlet numerical double integration algorithm. Variable f
+    represents the system of differential equations while variable vect0 is the
+    initial position of the solution, organized as [x_1(0),x_2(0),...x_n(0),
+    dx_1(0)/dt,dx_2(0)/dt,...dx_n(0)/dt]. The solution is restricted by lower 
+    bound vector start and upper bound vector stop, while time is restricted 
+    between tstart and tstop, with a time step variable of deltat. Variable 
+    inform allows the user to receive information about the integration process.
+    Variable rev reverses the direction of the solution, as if the solution is
+    being plotted over negative time. Variable adapt allows for adaptive step 
+    sizes in the integration process, allowing for potential increased accuracy
+    and potential increased speed."""
     if len(vect0)%2==0 and int(len(vect0)/2)==len(start) and len(start)==len(stop):
         dim = int(len(vect0)/2)
         vect0=np.array(vect0[0:len(vect0):2])
@@ -454,29 +456,29 @@ def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,
         return [], []
 
 def eulerTableau():
-    #Explicit Euler Butcher Tableau
+    """Explicit Euler Butcher Tableau"""
     c=[0.0]
     b=[1.0]
     a=[[0.0]]
     return a,b,c
 
 def rk2Tableau():
-    #Explicit RK2 Butcher Tableau
+    """Explicit RK2 Butcher Tableau"""
     c=[0.0,0.5]
     b=[0.0,1.0]
     a=[[0.0,0.0],[0.5,0.0]]
     return a,b,c
 
 def rk4Tableau():
-    #Explicit RK4 Butcher Tableau
+    """Explicit RK4 Butcher Tableau"""
     c = [0.0,0.5,0.5,1.0]
     b = [1.0/6.0,1.0/3.0,1.0/3.0,1.0/6.0]
     a = [[0.0,0.0,0.0,0.0],[0.5,0.0,0.0,0.0],[0.0,0.5,0.0,0.0],[0.0,0.0,1.0,0.0]]
     return a,b,c
 
 def rk12Tableau():
-    #Explicit RK12(10) Butcher Tableau
-    #(source = http://sce.uhcl.edu/rungekutta/rk1210.txt)
+    """Explicit RK12(10) Butcher Tableau
+    (source = http://sce.uhcl.edu/rungekutta/rk1210.txt)"""
     c = np.zeros(25)
     c[1] = 0.2
     c[2] = 0.5555555555555556
@@ -700,7 +702,8 @@ def rk12Tableau():
     return a,b,c
 
 def rk14Tableau():
-    # Explicit RK14(12) Butcher Tableau (source = http://sce.uhcl.edu/rungekutta/rk1412.txt)
+    """Explicit RK14(12) Butcher Tableau 
+    (source = http://sce.uhcl.edu/rungekutta/rk1412.txt)"""
     c=np.zeros(35)
     c[1] = 0.1111111111111111
     c[2] = 0.5555555555555556
