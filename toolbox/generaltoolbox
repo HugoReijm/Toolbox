@@ -7,8 +7,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d import art3d
     
 def decimal_to_fraction(x,n=2):
-    #This method converts a decimal x rounded off to the nth decimal place
-    #into a list containing it's numerator and denominator (in that order). 
+    """This method converts a decimal x rounded off to the nth decimal place
+    into a list containing it's numerator and denominator (in that order)."""
+    
     if not isinstance(n,int):
         n=int(n)
     if x==0.0:
@@ -32,9 +33,10 @@ def decimal_to_fraction(x,n=2):
     return [int(num),int(den)]
 
 def colors(N,plotly=False):
-    #This method producesa list of N evenly-spaced color strings used for plotting.
-    #The plotly option converts those colors to rgb strings compatible with 
-    #plotly plotting methods.
+    """This method producesa list of N evenly-spaced color strings used for plotting.
+    The plotly option converts those colors to rgb strings compatible with 
+    plotly plotting methods."""
+    
     N=int(round(N))
     if N<=0:
         return []
@@ -95,9 +97,10 @@ def colors(N,plotly=False):
         return res
 
 def hammersley(N,dim,points=True):
-    #This method produces N psuedo-random Hammersley points of dimension dim.
-    #The points option selects how the points are returned: either as a list
-    #of points, or as a list of coordinate lists.
+    """This method produces N psuedo-random Hammersley points of dimension dim.
+    The points option selects how the points are returned: either as a list
+    of points, or as a list of coordinate lists."""
+    
     primes=[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137]
     B=primes[:dim]
     dim=len(B)
@@ -117,9 +120,9 @@ def hammersley(N,dim,points=True):
         return [np.array([n/N for n in range(N+1)])]+[np.array([Phi(n,B[i-1]) for n in range(N+1)]) for i in range(1,dim)]
 
 def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=1):
-    #This method approximates the (partial) derivative of function f:R^n->R
-    #at point x with respect the the (variableDim)th variable,
-    #using a 5-point-stencil whenever possible.
+    """This method approximates the (partial) derivative of function f:R^n->R
+    at point x with respect the the (variableDim)th variable,
+    using a 5-point-stencil whenever possible."""
 
     if ("int" in type(x).__name__) or ("float" in type(x).__name__):
         x2hminus=x-2*h
@@ -180,12 +183,13 @@ def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=1):
                 return None
 
 def integrate(f,start,stop,args=[],kwargs={},mode="gauss",maxlevel=5,errtol=1e-3,adapt=True):
-    #This method approximates the integral of a function f:R->R between the lower bound
-    #start and upper bound stop. The integral can be computed using either 
-    #the adaptive (G30,K61) Gauss-Kronrod quadrature or the adaptive trapezium method.
-    #The maxlevel variable determines how many times the adaptive method can
-    #iterate, while the errtol variable provides an additional stopping
-    #criterion.
+    """This method approximates the integral of a function f:R->R between the lower bound
+    start and upper bound stop. The integral can be computed using either 
+    the adaptive (G30,K61) Gauss-Kronrod quadrature or the adaptive trapezium method.
+    The maxlevel variable determines how many times the adaptive method can
+    iterate, while the errtol variable provides an additional stopping
+    criterion."""
+    
     maxlevel=int(round(maxlevel))
     if (("int" not in type(start).__name__) and ("float" not in type(start).__name__)) or (("int" not in type(stop).__name__) and ("float" not in type(stop).__name__)):
         print("Error: inputted upper bound b or lower bound a are of incompatible type")
@@ -347,10 +351,11 @@ def integrate(f,start,stop,args=[],kwargs={},mode="gauss",maxlevel=5,errtol=1e-3
         return F
 
 def multiIntegrate(f,start,stop,args=[],kwargs={},N=1e3):
-    #This method approximates the integral of a function f:R^n->R between the lower bound
-    #vector start and upper bound B. The integral is computed using the quasi-random
-    #Monte Carlo integration, with the MonteCarloPoints variable accounting for
-    #the precision of the approximation.
+    """This method approximates the integral of a function f:R^n->R between the lower bound
+    vector start and upper bound B. The integral is computed using the quasi-random
+    Monte Carlo integration, with the MonteCarloPoints variable accounting for
+    the precision of the approximation."""
+    
     if (("list" in type(start).__name__) or ("ndarray" in type(start).__name__)) and (("list" in type(stop).__name__) or ("ndarray" in type(stop).__name__)):
         if len(start)==len(stop):
             dim=len(start)
@@ -384,8 +389,9 @@ def multiIntegrate(f,start,stop,args=[],kwargs={},N=1e3):
     return np.prod(npB-npA)*sum([f(npA+Points[i]*(npB-npA),*args,**kwargs) for i in range(N)])/N
 
 def interpolate(sol,t,N):
-    #This method interpolates a set of data (sol,t) into N temporally
-    #evenly-spaced data points.
+    """This method interpolates a set of data (sol,t) into N temporally
+    evenly-spaced data points."""
+    
     dim=len(sol)
     n=len(t)
     if any(len(sol[i])!=n for i in range(dim)):
@@ -423,15 +429,16 @@ def interpolate(sol,t,N):
     return solprime,tprime
 
 def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodRange=1e-2,maxlevel=50,speed=1):
-    #This method uses the multidimensional Newton-Raphson method to approximate
-    #the zeros of function f between lower bound vector start and upper bound vector
-    #stop. The method divides the search space into equally-sized spaces whose
-    #dimensions are given in vector delta. The method will search in each subspace,
-    #iterating a maximum of maxLevel times and each solution found must reach
-    #the errtol given. Solutions too close to each other are filtered out,
-    #determined by the neighborhoodRange variable. Finally, the speed variable allows
-    #for potentially faster convergence (if speed>1) or more steady convergence
-    #(if speed<1)
+    """This method uses the multidimensional Newton-Raphson method to approximate
+    the zeros of function f between lower bound vector start and upper bound vector
+    stop. The method divides the search space into equally-sized spaces whose
+    dimensions are given in vector delta. The method will search in each subspace,
+    iterating a maximum of maxLevel times and each solution found must reach
+    the errtol given. Solutions too close to each other are filtered out,
+    determined by the neighborhoodRange variable. Finally, the speed variable allows
+    for potentially faster convergence (if speed>1) or more steady convergence
+    (if speed<1)."""
+    
     from toolbox.matrixtoolbox import jacobian,lu
     try:
         dim=len(start)
@@ -478,17 +485,18 @@ def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodR
     return res
 
 def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="linear",plotbool=True,plotaxis=None,colormap=None,color="black",alpha=1.0):
-    #This method approximates the 0D solutions of f(x)=0, using a 
-    #"marching-line" algorithm, which is a 1D form of the marching cube algorithm.
-    #The zeros are found between scalar lower bound start and scalar upper bound
-    #stop, and divided into subsections of length delta. The method can subdivide
-    #even further through variable adapt. The method then bisects each subsection
-    #and only focusses on subsections that, as best as the method can tell, do 
-    #not contain any solutions. The subsections then form a structure similar to
-    #a sparse bitree. The maximum level of subdivisions is determined by variable
-    #maxlevel. After subdivision, the zeros are approximated using either linear,
-    #quadratic, or cubic interpolation, determined by variable mode. A colormap option
-    #is available to when plotting (colormap values are based on the x-coordinate).
+    """This method approximates the 0D solutions of f(x)=0, using a 
+    marching-line algorithm, which is a 1D form of the marching cube algorithm.
+    The zeros are found between scalar lower bound start and scalar upper bound
+    stop, and divided into subsections of length delta. The method can subdivide
+    even further through variable adapt. The method then bisects each subsection
+    and only focusses on subsections that, as best as the method can tell, do 
+    not contain any solutions. The subsections then form a structure similar to
+    a sparse bitree. The maximum level of subdivisions is determined by variable
+    maxlevel. After subdivision, the zeros are approximated using either linear,
+    quadratic, or cubic interpolation, determined by variable mode. A colormap option
+    is available to when plotting (colormap values are based on the x-coordinate)."""
+    
     plotshowbool=False
     if plotbool and plotaxis is None:
         graphsize=9
@@ -510,7 +518,7 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
            [[0,1]],
            [[]]]
 
-    class line:
+    class line(object):
         def __init__(self,Sv1,delta,f):
             self.delta=delta
             self.V=[Sv1,Sv1+delta]
@@ -731,12 +739,13 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
         return Px
 
 def plot2D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="y",mode="cartesian",plotaxis=None,color="black",alpha=1.0):
-    #This method provides a consistent way to plot any f:R->R function 
-    #(cartesian or polar) between scalar lower bound start and scalar upper bound
-    #stop, using delta as a step variable. The variable limit provides a 
-    #lower and upper limit on the value of f. The variable dependentvar determines
-    #which variable is a function of the other. For example, if the dependentvar
-    #is y, then y(x)=f(x).
+    """This method provides a consistent way to plot any f:R->R function 
+    (cartesian or polar) between scalar lower bound start and scalar upper bound
+    stop, using delta as a step variable. The variable limit provides a 
+    lower and upper limit on the value of f. The variable dependentvar determines
+    which variable is a function of the other. For example, if the dependentvar
+    is y, then y(x)=f(x)."""
+    
     plotshowbool=False
     if plotaxis is None:
         graphsize=9
@@ -788,19 +797,20 @@ def plot2D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
         plt.show()
 
 def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="linear",plotbool=True,plotaxis=None,wireframe=True,colormap=None,color="black",alpha=1.0):
-    #This method approximates the 1D solutions of f(x,y)=0, using the marching 
-    #square algorithm. The zeros are found between lower bound vector start and 
-    #upper bound vector stop, and divided into subsections of dimensions delta. 
-    #The method can subdivide even further through variable adapt. The method 
-    #then evenly bisects each subsection through each dimension and only focusses
-    #on subsections that, as best as the method can tell, do not contain any 
-    #solutions. The subsections then form a structure similar to a sparse 
-    #quadtree. The maximum level of subdivisions is determined by variable
-    #maxlevel. After subdivision, the zeros are approximated using either linear,
-    #quadratic, or cubic interpolation, determined by variable mode. If plotted,
-    #solutions are plotted either using a 2D wireframe (mostly just consisting
-    #of straight lines) or by just plotting the point-cloud. A colormap option
-    #is available to when plotting (colormap values are based on the y-coordinate).
+    """This method approximates the 1D solutions of f(x,y)=0, using the marching 
+    square algorithm. The zeros are found between lower bound vector start and 
+    upper bound vector stop, and divided into subsections of dimensions delta. 
+    The method can subdivide even further through variable adapt. The method 
+    then evenly bisects each subsection through each dimension and only focusses
+    on subsections that, as best as the method can tell, do not contain any 
+    solutions. The subsections then form a structure similar to a sparse 
+    quadtree. The maximum level of subdivisions is determined by variable
+    maxlevel. After subdivision, the zeros are approximated using either linear,
+    quadratic, or cubic interpolation, determined by variable mode. If plotted,
+    solutions are plotted either using a 2D wireframe (mostly just consisting
+    of straight lines) or by just plotting the point-cloud. A colormap option
+    is available to when plotting (colormap values are based on the y-coordinate)."""
+    
     plotshowbool=False
     if plotbool and plotaxis is None:
         graphsize=9
@@ -834,7 +844,7 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
            [[2, 3]],
            [[]]]
 
-    class square:
+    class square(object):
         def __init__(self,Sv1,deltax,deltay,f):
             if not isinstance(Sv1,np.ndarray):
                 Sv1=np.array(Sv1)
@@ -1126,16 +1136,17 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
         return Px,Py
 
 def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="z",plotaxis=None,wireframe=False,colormap=None,color="black",alpha=1.0):
-    #This method provides a consistent way to plot any f:R^2->R function 
-    #between lower bound vector start and upper bound vector stop, using delta 
-    #as a step vector. The variable limit provides a lower and upper limit on 
-    #the value of f. The method either returns the entire surface of the graph 
-    #when the variable wireframe is False, or returns just the wireframe when 
-    #the variable wireframe is True. The variable dependentvar determines which
-    #variable is a function of the other. For example, if the dependentvar is y,
-    #then y(x,z)=f(x,z). A colormap option is available to when plotting 
-    #(colormap values are based on the dependentvar-coordinate), but only when 
-    #the varaiable wireframe is False.
+    """This method provides a consistent way to plot any f:R^2->R function 
+    between lower bound vector start and upper bound vector stop, using delta 
+    as a step vector. The variable limit provides a lower and upper limit on 
+    the value of f. The method either returns the entire surface of the graph 
+    when the variable wireframe is False, or returns just the wireframe when 
+    the variable wireframe is True. The variable dependentvar determines which
+    variable is a function of the other. For example, if the dependentvar is y,
+    then y(x,z)=f(x,z). A colormap option is available to when plotting 
+    (colormap values are based on the dependentvar-coordinate), but only when 
+    the varaiable wireframe is False."""
+    
     plotshowbool=False
     if plotaxis is None:
         graphsize=9
@@ -1232,21 +1243,22 @@ def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
         plt.show()
 
 def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode="linear",plotbool=True,plotaxis=None,wireframe=True,surface=False,colormap=None,color="black",alpha=1.0):
-    #This method approximates the 2D solutions of f(x,y,z)=0, using the marching 
-    #cube algorithm. The zeros are found between lower bound vector start and 
-    #upper bound vector stop, and divided into subsections of dimensions delta. 
-    #The method can subdivide even further through variable adapt. The method 
-    #then evenly bisects each subsection through each dimension and only focusses
-    #on subsections that, as best as the method can tell, do not contain any 
-    #solutions. The subsections then form a structure similar to a sparse 
-    #octree. The maximum level of subdivisions is determined by variable
-    #maxlevel. After subdivision, the zeros are approximated using either linear,
-    #quadratic, or cubic interpolation, determined by variable mode. If plotted,
-    #solutions are plotted either using a wireframe (when variable wireframe is
-    #True), a polygonal surface reconstruction (when the variable surface is True),
-    #or by just plotting the point-cloud (when both wireframe and surface are 
-    #False). A colormap option is available to when plotting (colormap values 
-    #are based on the z-coordinate).
+    """This method approximates the 2D solutions of f(x,y,z)=0, using the marching 
+    cube algorithm. The zeros are found between lower bound vector start and 
+    upper bound vector stop, and divided into subsections of dimensions delta. 
+    The method can subdivide even further through variable adapt. The method 
+    then evenly bisects each subsection through each dimension and only focusses
+    on subsections that, as best as the method can tell, do not contain any 
+    solutions. The subsections then form a structure similar to a sparse 
+    octree. The maximum level of subdivisions is determined by variable
+    maxlevel. After subdivision, the zeros are approximated using either linear,
+    quadratic, or cubic interpolation, determined by variable mode. If plotted,
+    solutions are plotted either using a wireframe (when variable wireframe is
+    True), a polygonal surface reconstruction (when the variable surface is True),
+    or by just plotting the point-cloud (when both wireframe and surface are 
+    False). A colormap option is available to when plotting (colormap values 
+    are based on the z-coordinate)."""
+    
     plotshowbool=False
     if plotbool and plotaxis is None:
         graphsize=9
@@ -1545,7 +1557,7 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
             [[6,7,11,6]],
             [[]]]
 
-    class cube:
+    class cube(object):
         def __init__(self,Sv1,deltax,deltay,deltaz,f):
             if not isinstance(Sv1,np.ndarray):
                 Sv1=np.array(Sv1)
