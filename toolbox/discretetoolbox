@@ -7,10 +7,10 @@ import toolbox.generaltoolbox as gtb
 import toolbox.matrixtoolbox as mtb
 
 def generate(f,vect0,N,args=[],kwargs={}):
-    #This method generates a finite sequence according to an inputted 
-    #difference system. Variable f represents the governing difference 
-    #system. Variable vect0 is the initial position of the sequence. 
-    #Variable N dictates the size of the returning sequence.
+    """This method generates a finite sequence according to an inputted 
+    difference system. Variable f represents the governing difference 
+    system. Variable vect0 is the initial position of the sequence. 
+    Variable N dictates the size of the returning sequence."""
     dim=len(vect0)
     sol=[[vect0[i]]+[0.0 for j in range(N)] for i in range(dim)]
     resvect=[vect0[i] for i in range(dim)]
@@ -25,14 +25,14 @@ def generate(f,vect0,N,args=[],kwargs={}):
     return sol
 
 def lyapunovSpectrum(sol,f,args=[],kwargs={},dist=1e-6,K=1,plotbool=False,plotaxis=None,savefigName=None):
-    #This method approximates the first K values of the Lyapunov Spectrum of a 
-    #sequence of a difference system. Variable sol is the inputted
-    #sequence (organized first by dimension, then by chronology) and variable
-    #f is the corresponding difference system. Variable dist is the distance 
-    #used between the initial conditions for each trajectory in each iteration.
-    #Infrastructure for plotting the convergence of each exponent is available 
-    #(for visual verification). Variable savefigName allows for tge resulting 
-    #graph to be plotted under the name <savefigName>.png.
+    """This method approximates the first K values of the Lyapunov Spectrum of a 
+    sequence of a difference system. Variable sol is the inputted
+    sequence (organized first by dimension, then by chronology) and variable
+    f is the corresponding difference system. Variable dist is the distance 
+    used between the initial conditions for each trajectory in each iteration.
+    Infrastructure for plotting the convergence of each exponent is available 
+    (for visual verification). Variable savefigName allows for tge resulting 
+    graph to be plotted under the name <savefigName>.png."""
     dim=len(sol)
     solcopy=[sol[i][:-1] for i in range(dim)]
     n=len(solcopy[0])
