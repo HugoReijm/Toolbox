@@ -7,22 +7,20 @@ from circle import circle
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
 
+#This file contains the triangle class and its various methods.
 class triangle(object):
     def __init__(self,p1,p2,p3):
+        #This list keeps track of which points constitute the end-points of the triangle object.
         self.points=[p1,p2,p3]
+        #This list keeps track of which edge constitute the boundaries of the triangle object.
         self.edges=[]
         self.interiorAngles=None
         self.triagarea=None
         self.index=-1
         self.circumCircle=None
-        
-    def update(self):
-        for p in self.points:
-            p.triangles.append(self)
-        for e in self.edges:
-            e.triangles.append(self)
             
     def is_triangle(self,triangle,errtol=1e-12):
+        #This method compares whether two triangles are equal or not.
         if self.points[0].is_point(triangle.points[0],errtol=errtol) and self.points[1].is_point(triangle.points[1],errtol=errtol) and self.points[2].is_point(triangle.points[2],errtol=errtol):
             return True
         elif self.points[0].is_point(triangle.points[0],errtol=errtol) and self.points[1].is_point(triangle.points[2],errtol=errtol) and self.points[2].is_point(triangle.points[1],errtol=errtol):
@@ -36,8 +34,49 @@ class triangle(object):
         elif self.points[0].is_point(triangle.points[2],errtol=errtol) and self.points[1].is_point(triangle.points[1],errtol=errtol) and self.points[2].is_point(triangle.points[0],errtol=errtol):
             return True
         return False
-            
+    
+    def update(self):
+        #For each end-point of the triangle object, this method adds the triangle to the point's list of triangles it is a constituent of.
+        #For each boundary edge of the triangle object, this method adds the triangle to the edge's list of triangles it is a constituent of.
+        for p in self.points:
+            p.triangles.append(self)
+        for e in self.edges:
+            e.triangles.append(self)
+           
+    def area(self):
+        #This method computes the area of the edge object and makes the area variable a singleton.
+        if self.triagarea is None:
+            self.triagarea=0.5*abs(self.points[0].x*(self.points[1].y-self.points[2].y)+self.points[1].x*(self.points[2].y-self.points[0].y)+self.points[2].x*(self.points[0].y-self.points[1].y))
+        return self.triagarea
+    
+    def angles(self):
+        #This method computes the interior angles of the triangle object and makes the interior angles object a singleton.
+        if self.interiorAngles is None:
+            if len(self.edges)==3:
+                angle0=0
+                for i in range(3):
+                    if not self.edges[i].points[0].is_point(self.points[0]) and not self.edges[i].points[1].is_point(self.points[0]):
+                        angle0=math.acos((sum([self.edges[j].length()**2 for j in range(3) if j!=i])-self.edges[i].length()**2)/(2*np.prod([self.edges[j].length() for j in range(3) if j!=i])))
+                        break
+                angle1=0
+                for i in range(3):
+                    if not self.edges[i].points[0].is_point(self.points[1]) and not self.edges[i].points[1].is_point(self.points[1]):
+                        angle1=math.acos((sum([self.edges[j].length()**2 for j in range(3) if j!=i])-self.edges[i].length()**2)/(2*np.prod([self.edges[j].length() for j in range(3) if j!=i])))
+                        break
+                angle2=math.pi-angle0-angle1
+            else:
+                a=math.sqrt((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2)
+                b=math.sqrt((self.points[2].x-self.points[0].x)**2+(self.points[2].y-self.points[0].y)**2)
+                c=math.sqrt((self.points[2].x-self.points[1].x)**2+(self.points[2].y-self.points[1].y)**2)
+                angle0=math.acos((a**2+b**2-c**2)/(2*a*b))
+                angle1=math.acos((a**2+c**2-b**2)/(2*a*c))
+                angle2=math.pi-angle0-angle1
+            self.interiorAngles=[angle0,angle1,angle2]
+        return self.interiorAngles
+    
     def point_triangle_intersect(self,pointVar,includeboundary=True,errtol=1e-12):
+        #This method returns whether a point is inside the triangle object or not.
+        #Distinction is made whether to include the boundary edges or not.
         det=(self.points[1].x-self.points[0].x)*(self.points[2].y-self.points[0].y)-(self.points[1].y-self.points[0].y)*(self.points[2].x-self.points[0].x)
         w1=((pointVar.x-self.points[0].x)*(self.points[2].y-self.points[0].y)+(pointVar.y-self.points[0].y)*(self.points[0].x-self.points[2].x))/det
         w2=((pointVar.x-self.points[0].x)*(self.points[0].y-self.points[1].y)+(pointVar.y-self.points[0].y)*(self.points[1].x-self.points[0].x))/det
@@ -51,6 +90,8 @@ class triangle(object):
         return False
         
     def edge_triangle_intersect(self,edgeVar,includeboundary=True,errtol=1e-12):
+        #This method returns whether an edge intersects the triangle object or not.
+        #Distinction is made whether to include the boundaries of the triangle and edge objects or not.
         if len(self.edges)==0:
             self.edges=[edge(self.points[0],self.points[1]),edge(self.points[0],self.points[2]),edge(self.points[1],self.points[2])]
         if includeboundary:
@@ -104,42 +145,16 @@ class triangle(object):
             return False
                 
     def triangle_triangle_intersect(self,triangle,includeboundary=True,errtol=1e-12):
+        #This method returns whether an inputted triangle intersects the triangle object or not.
+        #Distinction is made whether to include the boundaries of the triangle objects or not.
         if len(self.edges)==0:
             self.edges=[edge(self.points[0],self.points[1]),edge(self.points[0],self.points[2]),edge(self.points[1],self.points[2])]
         if len(triangle.edges)==0:
             triangle.edges=[edge(triangle.points[0],triangle.points[1]),edge(triangle.points[0],triangle.points[2]),edge(triangle.points[1],triangle.points[2])]
         return any([triangle.edge_triangle_intersect(e,includeboundary=includeboundary,errtol=errtol) for e in self.edges]) or any([self.edge_triangle_intersect(e,includeboundary=includeboundary,errtol=errtol) for e in triangle.edges])
-        
-    def area(self):
-        if self.triagarea is None:
-            self.triagarea=0.5*abs(self.points[0].x*(self.points[1].y-self.points[2].y)+self.points[1].x*(self.points[2].y-self.points[0].y)+self.points[2].x*(self.points[0].y-self.points[1].y))
-        return self.triagarea
-    
-    def angles(self):
-        if self.interiorAngles is None:
-            if len(self.edges)==3:
-                angle0=0
-                for i in range(3):
-                    if not self.edges[i].points[0].is_point(self.points[0]) and not self.edges[i].points[1].is_point(self.points[0]):
-                        angle0=math.acos((sum([self.edges[j].length()**2 for j in range(3) if j!=i])-self.edges[i].length()**2)/(2*np.prod([self.edges[j].length() for j in range(3) if j!=i])))
-                        break
-                angle1=0
-                for i in range(3):
-                    if not self.edges[i].points[0].is_point(self.points[1]) and not self.edges[i].points[1].is_point(self.points[1]):
-                        angle1=math.acos((sum([self.edges[j].length()**2 for j in range(3) if j!=i])-self.edges[i].length()**2)/(2*np.prod([self.edges[j].length() for j in range(3) if j!=i])))
-                        break
-                angle2=math.pi-angle0-angle1
-            else:
-                a=math.sqrt((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2)
-                b=math.sqrt((self.points[2].x-self.points[0].x)**2+(self.points[2].y-self.points[0].y)**2)
-                c=math.sqrt((self.points[2].x-self.points[1].x)**2+(self.points[2].y-self.points[1].y)**2)
-                angle0=math.acos((a**2+b**2-c**2)/(2*a*b))
-                angle1=math.acos((a**2+c**2-b**2)/(2*a*c))
-                angle2=math.pi-angle0-angle1
-            self.interiorAngles=[angle0,angle1,angle2]
-        return self.interiorAngles
     
     def circumcircle(self):
+        #This method computes the circumcircle of the triangle object and makes the circumcircle variable a singleton.
         if self.circumCircle is None:
             Sx=npla.det([[self.points[0].x**2+self.points[0].y**2,self.points[0].y,1],
                          [self.points[1].x**2+self.points[1].y**2,self.points[1].y,1],
@@ -157,6 +172,8 @@ class triangle(object):
         return self.circumCircle
     
     def inCircumcircle(self,pointVar,includeboundary=True,errtol=1e-12):
+        #This method calculates whether an inputted point lies inside of the triangle object's circumcircle.
+        #Distinction is made whether to include the boundary of the circumcircle or not.
         if (self.points[1].x-self.points[0].x)*(self.points[2].y-self.points[1].y)-(self.points[1].y-self.points[0].y)*(self.points[2].x-self.points[1].x)>0:
             res=npla.det([[self.points[0].x-pointVar.x,self.points[1].x-pointVar.x,self.points[2].x-pointVar.x],
                           [self.points[0].y-pointVar.y,self.points[1].y-pointVar.y,self.points[2].y-pointVar.y],
@@ -172,9 +189,13 @@ class triangle(object):
             return res>abs(errtol)
     
     def __repr__(self):
+        #This method returns a string representation of the triangle object.
         return "Triangle <"+self.points[0].__repr__()+", "+self.points[1].__repr__()+", "+self.points[2].__repr__()+">"
     
     def copy(self,blank=True):
+        #This method returns a copy of the triangle object.
+        #Whether the copy contains all variables of the original used for constructing triangulations is user-designated.
+        #The triangle object's edge list is not copied.
         t=triangle(self.points[0].copy(),self.points[1].copy(),self.points[2].copy())
         if self.triagarea is not None:
             t.triagarea=self.triagarea
@@ -185,6 +206,7 @@ class triangle(object):
         return t
     
     def draw(self,plotaxis,points=True,edges=True,fill=True,color="black",alpha=1):    
+        #This method plots the triangle object into an inputted figure axis object.
         if sum(pltcolors.to_rgb(color))<=1.0:
             color_alt="white"
         else:
@@ -209,6 +231,9 @@ class triangle(object):
                 plotaxis.scatter([p.x for p in self.points],[p.y for p in self.points],facecolor=color,edgecolor=color,alpha=alpha,zorder=1)
                 
     def kill(self,T=None):
+        #This method removes the triangle object from any of its point's triangle lists.
+        #This method also removes the triangle object from any of its edge's triangle lists.
+        #Finally this method removes the triangle object from any inputted list, then deletes itself.
         for e in self.edges:
             try:
                 e.points.remove(self)
