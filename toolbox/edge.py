@@ -168,7 +168,7 @@ class edge(object):
         return None
     
     def circumcircle(self):
-        #This method returns the smallest circumcircle of the edge object and makes the circumcircl object a singleton.
+        #This method returns the smallest circumcircle of the edge object and makes the circumcircle object a singleton.
         if self.circumCircle is None:
             self.circumCircle=circle(point((self.points[0].x+self.points[1].x)/2,(self.points[0].y+self.points[1].y)/2),
                                      math.sqrt((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2)/2)
@@ -176,7 +176,7 @@ class edge(object):
     
     def inCircumcircle(self,pointVar,includeboundary=True,errtol=1e-12):
         #This method calculates whether an inputted point lies inside of the edge object's circumcircle.
-        #Distinction is made whether to include the boundary of the circumcle or not.
+        #Distinction is made whether to include the boundary of the circumcircle or not.
         pointd=point((self.points[0].x+self.points[1].x)/2,(self.points[0].y+self.points[1].y)/2)
         pointc=point(self.points[0].y-pointd.y+pointd.x,pointd.x-self.points[0].x+pointd.y)
         if (self.points[1].x-self.points[0].x)*(pointc.y-self.points[1].y)-(self.points[1].y-self.points[0].y)*(pointc.x-self.points[1].x)>0:
