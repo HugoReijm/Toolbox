@@ -39,7 +39,7 @@ class circle(object):
             return res>abs(errtol)
         
     def __repr__(self):
-        #This method prints the circle object.
+        #This method returns a string representation of the circle object.
         return "Circle <"+self.center.__repr__()+", %0.3f>"%self.radius
         
     def copy(self):
