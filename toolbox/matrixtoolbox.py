@@ -5,6 +5,8 @@ import scipy.sparse as scarse
 import matplotlib.pyplot as plt
 
 def plotMatrix(M,tol=1e-6,plotaxis=None,colormap=None,color="black",alpha=1.0):
+    #This method plots a matrix, leaving the zero entries blank.
+    #Non-zero elements are represented by either a flat color, or can be colored through a color-mapping based on element "strength". 
     graphsize=9
     font = {"family": "serif",
         "color": "black",
@@ -274,7 +276,7 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
     #This method implements the general LU Decomposition matrix solver.
     #It attempts to solve the equation Ax=b. The variable tol controls the 
     #tolerance of what is to be considered zero or not. Variable symbol allows 
-    #for the solving of matrix-vector equations involving symbols.Variable 
+    #for the solving of matrix-vector equations involving symbols. Variable 
     #inform allows the user to receive information about the process 
     #(for verification purposes).
     if not isinstance(A,np.ndarray):
@@ -455,27 +457,3 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
         if inform:
             print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
         return []
-
-def powerMethod(A,tol=1e-6,max_iter=100,x0=None,report=False):
-    n=A.shape[0]
-    if x0!=None:
-        x=x0.copy()
-    else:
-        x=np.random.rand(A.shape[0])
-    lmbda=0
-    r=2*tol
-    k=0
-    while r>tol and k<max_iter:
-        y=A.dot(x)
-        x=y/npla.norm(y)
-        lmbda=np.inner(np.conjugate(x),y)
-        r=npla.norm((A-lmbda*np.identity(n)).dot(x))
-        k+=1
-    if report:
-        print("Power Method Performance Data:")
-        if k >= max_iter:
-            print("Number of iterations (Max Number of Iterations Reached): %i" % k)
-        else:
-            print("Number of iterations: %i" % k)
-        print("Error: %.6f" % r)
-    return lmbda,x
