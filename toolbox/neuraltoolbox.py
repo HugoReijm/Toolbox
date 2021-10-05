@@ -9,8 +9,11 @@ font = {"family": "serif",
 "color": "black",
 "weight": "bold",
 "size": "16"}
-        
+ 
+#This file contains the classes Layer and NeuralNet.
+#Layer contains all the variables and methods needed to push an input through one layer of a feed-forward neural network.
 class Layer:
+    #The following static classes define several of the vectorized activation functions and their derivatives.
     @staticmethod
     def identity(X):
         return X,np.ones(X.shape)
@@ -60,6 +63,10 @@ class Layer:
         return res,-2*X*res
             
     def __init__(self,size,input_size,activ_Func_Title):
+        #This initialization method allows the user to designate the following:
+        #<size> determines the number of artificial neurons in the layer
+        #<input_size> determines the number of inputs each artificial neuron will recieve
+        #<activ_Func_Title> determines the activation function each artificial neuron will use.
         self.size=size
         self.activ_Func_Title=activ_Func_Title.lower()
         if self.activ_Func_Title in ["bin","binary"]:
@@ -89,14 +96,19 @@ class Layer:
             self.activ_Func=Layer.identity
             
         self.input=np.append(np.zeros(input_size),1)
+        #The variable W determines the weights of the artificial neurons in the layer (including biases). 
         self.W=np.array([np.append(2*np.random.rand(input_size)-1,0) for p in range(self.size)])
+        #The variable V determines the "momentum" of the weights of the artificial neurons in the layer (including biases) as the network trains.
         self.V=np.zeros(self.W.shape)
+        #These variables are necessary for efficient back propagation (full explanations are mathematically lengthy and thus not provided here).
         self.dEdW=np.zeros(self.W.shape)
         self.aux_sum_1=np.zeros(self.W.shape)
         self.aux_sum_2=np.zeros(self.W.shape)
         self.output=(np.zeros(self.size),np.zeros(self.size))
     
     def activate(self,inputs,one_to_one=False):
+        #This method pushes the inputs through the layer to result in an output.
+        #Distinction is made whether the layer is an input layer or not.
         if one_to_one:
             self.input=inputs
             self.output=self.activ_Func(self.W[:,0]*self.input+self.W[:,1])
@@ -106,6 +118,7 @@ class Layer:
         return self.output
         
     def __repr__(self):
+        #This method returns a string representation of the layer.
         res="LAYER: Number of Neurons: %i, Activation Function: %s\n"%(self.size,self.activ_Func_Title)
         for i in range(self.size):
             res+="NEURON %i: Number of Weights: %i\n"%(i,self.W.shape[1]-1)
@@ -118,7 +131,10 @@ class Layer:
             res+="Bias: "+str(round(self.W[i,-1],3))+"\n"
         return res
 
+#NeuralNet contains all the variables and methods needed to design, operate, save, and load a feed-forward neural network.
+#It also contains the infastructure needed to train a neural network effeciently using optimizers.
 class NeuralNet:
+    #The following static methods compute various error functions used for back propagation.
     @staticmethod
     def Mean_Square_Error(prediction,target,deriv=False):
         if deriv:
@@ -134,6 +150,12 @@ class NeuralNet:
             return -(target*np.log((1-epsilon)*prediction+epsilon)+(1-target)*np.log((1-epsilon)*(1-prediction)+epsilon)).mean()
 
     def __init__(self,layer_structure,activ_Func_Titles,importfile=None):
+        #This initialization method either loads a network from a pre-existing file or constructs a new one.
+        #The user can designate the following:
+        #<layer_structure> is a list of numbers, where the length of the list equals the total number of layers (including input layer),
+        #and every element of the list represents the number of artificial neurons in the corresponding layer.
+        #<activ_Func_Titles> is a list of strings, where the length of the list equals the total number of layers (including input layer),
+        #and every element of the list represents the activation function each of the artificial neurons in the corresponding layer will use.
         if importfile is not None:
             self.read(importfile)
         else:
@@ -150,6 +172,7 @@ class NeuralNet:
                 self.error_Func=NeuralNet.Mean_Square_Error
     
     def __repr__(self):
+        #This method returns a string representation of the neural network.
         res="NEURAL NETWORK: Number of Layers: %i, Total Number of Neurons: %i\n\n"%(self.size,sum([layer.size for layer in self.layers]))
         for i in range(self.size):
             res+="LAYER %i: Number of Neurons: %i, Activation Function: %s\n"%(i,self.layers[i].size,self.layers[i].activ_Func_Title)
@@ -167,6 +190,9 @@ class NeuralNet:
         return res
         
     def draw(self,fade=False):
+        #This method visualizes of the neural network by plotting it.
+        #Distinction is made whether to fade the artificial neurons based on the strength of the bias.
+        #Distinction is also made whether to fade the weights based on their strength.
         fig=plt.figure(1,figsize=(graphsize,graphsize))
         ax=fig.add_subplot(111)
         r=1
@@ -222,6 +248,8 @@ class NeuralNet:
                             plt.plot([(6*i-3)*r,(6*i+3)*r],[(3*k+1)*r,(3*j+1)*r],color="black")
                             
     def write(self):
+        #This method writes the structure, weights, and biases of the neural network to a user-designated text file.
+        #Files written this way can be read and converted back into a neuralnet object with the read method.
         lyr_string=str(self.layer_structure[0])
         func_string=str(self.activ_Func_Titles[0])
         for i in range(1,self.size):
@@ -249,6 +277,8 @@ class NeuralNet:
         print("Neural Network printed to "+os.getcwd()+"\\"+filename)
     
     def read(self,file_name):
+        #This method reads a user-designated neural network structure file and builds a neuralnet object from it.
+        #Neuralnet objects can be rewritten back into text file format with the write method.
         file=open(file_name,"r")
         layer_structure_string=file.readline().replace("\n","").split(",")
         self.layer_structure=[int(elem) for elem in layer_structure_string]        
@@ -274,6 +304,7 @@ class NeuralNet:
         file.close()
         
     def push(self,inputs):
+        #This method pushes an input through the entire neural network and returns the result.
         if len(inputs)==self.inputsize:
             self.input=np.asarray(inputs)
             self.output=self.layers[0].activate(self.input,one_to_one=True)
@@ -284,6 +315,8 @@ class NeuralNet:
             raise Exception("Neural network can take %i inputs but recieved %i"%(self.inputsize,len(inputs)))
             
     def calculate_dEdPhi(self,target_set):
+        #For each artificial neuron, this method calculates the derivative of the error between the neural network's prediction and target
+        #with respect to the neuron's activation function.
         dEdPhi=[1 for i in range(self.size-1)]+[self.error_Func(self.layers[-1].output[0],target_set,deriv=True)]
         for i in range(self.size-2,-1,-1):
             if self.layers[i+1].activ_Func_Title=="softmax":
@@ -293,6 +326,8 @@ class NeuralNet:
         return dEdPhi
 
     def calculate_dEdW(self,target_set,addition=False):
+        #For each artificial neuron, this method calculates the derivative of the error between the neural network's prediction and target
+        #with respect to the neuron's weights and bias.
         dEdPhi=self.calculate_dEdPhi(target_set)
         if self.layers[0].activ_Func_Title=="softmax":
             res=self.layers[0].output[1].T.dot(dEdPhi[0])
@@ -318,33 +353,39 @@ class NeuralNet:
                     np.outer(dEdPhi[i]*self.layers[i].output[1],self.layers[i].input,self.layers[i].dEdW)
 
     def backpropagate_sgd(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with no optimizer.
         for l in self.layers:
             l.V=train_rate*l.dEdW
             l.W-=l.V
 
     def backpropagate_momentum(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the momentum optimizer.
         for l in self.layers:
             l.V=0.9*l.V+train_rate*l.dEdW
             l.W-=l.V
     
     def backpropagate_nesterov(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the nesterov accelerated gradient optimizer.
         for l in self.layers:
             l.V=0.9*l.V+train_rate*l.dEdW
             l.W-=0.9*l.V+train_rate*l.dEdW
             
     def backpropagate_adagrad(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the adagrad optimizer.
         for l in self.layers:
             l.aux_sum_1+=l.dEdW**2
             l.V=train_rate*l.dEdW/np.sqrt(l.aux_sum_1+1e-6)
             l.W-=l.V
     
     def backpropagate_rmsprop(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the rmsprop optimizer.
         for l in self.layers:
             l.aux_sum_1=0.9*l.aux_sum_1+0.1*l.dEdW**2
             l.V=train_rate*l.dEdW/np.sqrt(l.aux_sum_1+1e-6)
             l.W-=l.V
         
     def backpropagate_adadelta(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the adadelta optimizer.
         for l in self.layers:
             l.aux_sum_1=0.9*l.aux_sum_1+0.1*l.V**2
             l.aux_sum_2=0.9*l.aux_sum_2+0.1*l.dEdW**2
@@ -352,6 +393,7 @@ class NeuralNet:
             l.W-=l.V
         
     def backpropagate_adam(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the adam optimizer.
         for l in self.layers:
             l.aux_sum_1=0.9*l.aux_sum_1+0.1*l.dEdW
             l.aux_sum_2=0.999*l.aux_sum_2+0.001*l.dEdW**2
@@ -359,6 +401,7 @@ class NeuralNet:
             l.W-=l.V
     
     def backpropagate_adamax(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the adamax optimizer.
         for l in self.layers:
             l.aux_sum_1=0.9*l.aux_sum_1+0.1*l.dEdW
             l.aux_sum_2=np.maximum(0.999*l.aux_sum_2,np.abs(l.dEdW))
@@ -366,6 +409,7 @@ class NeuralNet:
             l.W-=l.V
         
     def backpropagate_nadam(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with the nadam optimizer.
         for l in self.layers:
             l.aux_sum_1=0.9*l.aux_sum_1+0.1*l.dEdW
             l.aux_sum_2=0.999*l.aux_sum_2+0.001*l.dEdW**2
@@ -373,6 +417,7 @@ class NeuralNet:
             l.W-=l.V
     
     def backpropagate_amsgrad(self,train_rate,tau):
+        #This method performs the back propagation algorithm on the neural network with amsgrad optimizer.
         for l in self.layers:
             l.aux_sum_1=0.9*l.aux_sum_1+0.1*l.dEdW
             res=0.999*l.aux_sum_2+0.001*l.dEdW**2
@@ -381,6 +426,12 @@ class NeuralNet:
             l.W-=l.V
         
     def train(self,feature_set,target_set,train_rate=None,max_error=1e-3,max_epoch=1000,batch_size=50,inform=True,optimizer="adam"):
+        #This method takes as input a feature set and a target set and trains the neural network on it using back propagation.
+        #<train_rate> determines the speed at which the neural network learns and is usually pre-determined.
+        #<max_error> determines the maximum error the neural network must achieve per epoch for the training to finish.
+        #<max_epoch> determines the maximum number of epoch the neural network can train before the training halts.
+        #<batch_size> allows for training to be done in mini-batches.
+        #<optimizer> determines which optimizer scheme will be used to train the network.
         errors_list=[2*max_error]
         training_set_size=len(feature_set)
         k=0
@@ -456,6 +507,7 @@ class NeuralNet:
                 l.dEdW/=training_set_size-np.floor(training_set_size/batch_size)
             backprop_func(train_rate,(k+1)*training_set_size)
             
+            #If <inform>, the code will interact with the user by showing progress and basic result statistics.
             if inform:
                 errors_list.append(errors.mean())
             else:
