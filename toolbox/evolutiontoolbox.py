@@ -4,8 +4,19 @@ import matplotlib.pyplot as plt
 import time
 import toolbox.generaltoolbox as gtb
 
-class population:
+#This file contains two classes: the population class and the evoalg class.
+#The population class contains all the information and methods for one iteration of the Evolutionary Algorithm.
+class population(object):
     def __init__(self,size,size_of_gene,number_of_offspring,fitnessfunction,minInputs,maxInputs,integer_values_bool=False,pseudo_random_bool=False):
+        #This initialization method allows the user to determine the following:
+        #<size> determines how large the population is.
+        #<size_of_gene> determines how long the genes of the population are.
+        #<number_of_offspring> determines how many recombinations of the original population get passed to the next iteration.
+        #<fitness_function> determines the function that decides how fit a gene is. 
+        #<minInputs> determines the minimum value for each element of the gene of the population.
+        #<maxInputs> determines the maximum value for each element of the gene of the population.
+        #<integer_values_bool> determines whether the genes are integer-valued or not.
+        #<pseudo_random_bool> determines whether the initial genes are pseudo-randomized (instead of purely randomized).
         self.size=size
         self.size_of_gene=size_of_gene
         self.maxInputs=maxInputs.copy()
@@ -30,24 +41,12 @@ class population:
         self.computefitness()
         
     def computefitness(self):
+        #This method computes the fitness of each gene in the population, then sorts the genes in ascending order based on fitness.
         self.fitness=np.array([self.fitnessfunction(self.genes[i]) for i in range(self.size)])
         self.genes=[gene for _,gene in sorted(zip(self.fitness,self.genes),key=lambda pair:pair[0],reverse=True)]
-        total=sum(self.fitness)
-        if total==0:
-            self.fitnessratio=np.array([i/self.size for i in range(self.size+1)])
-        else:
-            self.fitnessratio=np.array([sum(self.fitness[:i])/total for i in range(self.size+1)])
-    
-    def roulette_selection(self):
-        p=random.random()
-        gindex=0
-        for i in range(self.size):
-            if self.fitnessratio[i]<=p and p<=self.fitnessratio[i+1]:
-                gindex=i
-                break
-        return gindex
     
     def tournament_selection(self):
+        #This method selects a gene from the population by selected the most fit gene from a randomly selected subset of the population. 
         k=min(int(self.size/2),1)
         indexArray=[random.randint(0,self.size-1) for i in range(k)]
         gindex=indexArray[0]
@@ -57,6 +56,9 @@ class population:
         return gindex
     
     def crossover(self):
+        #This method generates a new generation of the population.
+        #First, the method randomly recombines genes of the population a set number of times.
+        #Then, the new set of recombined genes replaces the worst performing genes of the original population.
         if self.number_of_offspring>0:
             new_genes=[]
             while len(new_genes)<self.number_of_offspring:
@@ -77,6 +79,7 @@ class population:
                 self.genes=new_genes
     
     def mutate(self,mutation_chance=0.1):
+        #This method adds very rarely random mutations to the population's genes in order to search for more optimal solutions.
         for i in range(self.size):
             if random.random()<mutation_chance:
                 p=random.randint(0,self.size_of_gene-1)
@@ -85,8 +88,18 @@ class population:
                 else:
                     self.genes[i][p]=self.minInputs[p]+random.random()*(self.maxInputs[p]-self.minInputs[p])
             
+#The evoalg class contains the information and methods for executing consecutive iterations of the Evolutionary Algorithm.
 class evoAlg:
     def __init__(self,function,populationSize,geneLength,offspringNumber,minInputs,maxInputs,integer_values_bool=False,pseudo_random_bool=False):
+        #This initialization method initializes the population and allows the user to determine the following:
+        #<function> determines the function that decides how fit a gene is.
+        #<populationSize> determines how large the population is.
+        #<geneLength> determines how long the genes of the population are.
+        #<offspringNumber> determines how many recombinations of the original population get passed to the next iteration. 
+        #<minInputs> determines the minimum value for each element of the gene of the population.
+        #<maxInputs> determines the maximum value for each element of the gene of the population.
+        #<integer_values_bool> determines whether the genes are integer-valued or not.
+        #<pseudo_random_bool> determines whether the initial genes are pseudo-randomized (instead of purely randomized).
         self.f=function
         self.popSize=populationSize
         self.geneLength=geneLength
@@ -113,6 +126,9 @@ class evoAlg:
         self.population=population(self.popSize,self.geneLength,self.offspring,self.f,self.minInputs,self.maxInputs,integer_values_bool=self.intValBool,pseudo_random_bool=self.pseudoRandomBool)
         
     def evolve(self,generations,plot=True,inform=True,adapt=True,return_result=True):
+        #This method manages the multiple iterations of the evolutionary algorithm.
+        #The number of generations the algorithm is allowed to evolve the population is user-designated.
+        #If <inform> is true, the algorithm interacts with the user to inform them of progress and results.
         self.gens=generations
         self.population.current_generation=0
         self.fitness_per_generation=np.zeros(self.gens)
@@ -127,6 +143,7 @@ class evoAlg:
             if inform and (self.population.current_generation+1)%10==0:
                 tic=time.time()
             self.population.crossover()
+            #If <adapt> is true, the mutation chance drops exponentially per generation, starting at <alpha=0.1> and ending at 0.
             if adapt:
                 self.population.mutate(mutation_chance=mutation_chance_A*np.exp(-self.population.current_generation/self.gens)+mutation_chance_B)
             else:
@@ -180,5 +197,6 @@ class evoAlg:
             plt.xlabel("Generations",fontdict=font)
             plt.ylabel("Fitness Function",fontdict=font)
             plt.show()
+        #If <return_result>, the algorithm returns the most fit gene.
         if return_result:
             return self.population.genes[bstInd]
