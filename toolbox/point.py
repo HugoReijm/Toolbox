@@ -6,7 +6,9 @@ class point(object):
     def __init__(self,x,y):
         self.x=x
         self.y=y
+        #This list keeps track of which edges the point object is a constituent of.
         self.edges=[]
+        #This list keeps track of which triangles the point object is a constituent of.
         self.triangles=[]
         self.index=-1
     
@@ -24,7 +26,7 @@ class point(object):
               
     def copy(self):
         #This method returns an exact copy of the point object.
-        #The objects edge and triangle lists are not included.
+        #The objects edge and triangle lists are not copied.
         return point(self.x,self.y)
     
     def kill(self,P=None):
