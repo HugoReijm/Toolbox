@@ -2,18 +2,21 @@ import math
 import numpy as np
 import numpy.linalg as npla
 import scipy.linalg as spla
+import scipy.sparse as sparsepy
+import scipy.sparse.linalg as sparsela
+from itertools import product
 import toolbox.matrixtoolbox as mtb
 import toolbox.generaltoolbox as gtb
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def poincareSection(sol,planeCoords,planeParams):
-    """This method calculates a Poincare Section of a solution of a system of
-    differential equations onto a plane discribed by 
-    sum([planeParams[i]*(x_i-planeCoords[i]) for i in range(dim)])=0. Including 
-    time is not necessary here. Notice that the inputted solution must as 
-    organized first by dimension, then by chronology.
-    That is, sol=[[x_1,x_2,...x_n],[y_1,y_2,...y_n],...]"""
-    
+    #This method calculates a Poincare Section of a solution of a system of
+    #differential equations onto a plane discribed by 
+    #sum([planeParams[i]*(x_i-planeCoords[i]) for i in range(dim)])=0. Including 
+    #time is not necessary here. Notice that the inputted solution must as 
+    #organized first by dimension, then by chronology.
+    #That is, sol=[[x_1,x_2,...x_n],[y_1,y_2,...y_n],...]
     if isinstance(planeCoords,list):
         planeCoords=np.array(planeCoords)
     if isinstance(planeParams,list):
@@ -35,20 +38,19 @@ def poincareSection(sol,planeCoords,planeParams):
                     for l in range(dim):
                         poincareCoords[l].append((res2*coords1[l]-res1*coords2[l])/(res2-res1))
     return poincareCoords
-
-def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=False,plotaxis=None,savefigName=None):
-    """This method approximates the first K values of the Lyapunov Spectrum of a 
-    solution of a system of differential equations. Variable sol is the inputted
-    solution (organized first by dimension, then by chronology), variable t is
-    the corresponding time array, and variable f is the corresponding system of
-    differential equations. Variable dist is the distance used between the 
-    initial conditions for each trajectory in each iteration. Variable easy 
-    controls whether the RK4 numerical integration method (easy=True) or the 
-    RK14(12) numerical integration method (easy=False) is used. Infrastructure
-    for plotting the convergence of each exponent is available (for visual 
-    verification). Variable savefigName allows for tge resulting 
-    graph to be plotted under the name <savefigName>.png."""
     
+def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=False,plotaxis=None,savefigName=None):
+    #This method approximates the first K values of the Lyapunov Spectrum of a 
+    #solution of a system of differential equations. Variable sol is the inputted
+    #solution (organized first by dimension, then by chronology), variable t is
+    #the corresponding time array, and variable f is the corresponding system of
+    #differential equations. Variable dist is the distance used between the 
+    #initial conditions for each trajectory in each iteration. Variable easy 
+    #controls whether the RK4 numerical integration method (easy=True) or the 
+    #RK14(12) numerical integration method (easy=False) is used. Infrastructure
+    #for plotting the convergence of each exponent is available (for visual 
+    #verification). Variable savefigName allows for tge resulting 
+    #graph to be plotted under the name <savefigName>.png.
     dim=len(sol)
     solcopy=[sol[i][:-1] for i in range(dim)]
     tcopy=t[:-1]
@@ -56,27 +58,27 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
     if any([len(solcopy[i])!=n for i in range(dim)]):
         print("Error in inputted solution. Terminating process")
         return 0.0
-
+    
     K=max(min(K,dim),1)
     vect0=np.array([float(solcopy[i][0]) for i in range(dim)])
     vects=[np.copy(vect0) for i in range(K)]
     for i in range(K):
         vects[i][i]+=dist
-
+    
     def GramDet(vectors):
         size=len(vectors)
         Gramian=[[np.inner(vectors[i],vectors[j]) for j in range(size)] for i in range(size)]
         return npla.det(Gramian)
-
+    
     Lambda=[0.0 for i in range(K)]
     if plotbool:
         plotLambda=[[] for i in range(K)]
     counts=[0 for i in range(K)]
-
+    
     vols=[0.0 for i in range(K)]
     for i in range(1,n):
         vect0=np.array([float(solcopy[j][i]) for j in range(dim)])
-
+        
         for j in range(K):
             if easy:
                 tempsol,tempt=rk4(f,vects[j],vects[j]-np.array([1e3 for i in range(dim)]),
@@ -103,8 +105,9 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
                             plotLambda[j].append(Lambda[j]/(tcopy[i]-tcopy[0])-Lambda[j-1]/(tcopy[i]-tcopy[0]))
             else:
                 if plotbool:
+                    counts[j]+=1
                     plotLambda[j].append(plotLambda[j][len(plotLambda[j])-1])
-
+                    
         orthonormals=mtb.grammSchmidt([vects[j]-vect0 for j in range(K)],normalize=True,tol=min(dist*1e-3,1e-3),clean=False)
         adjusted=[]
         voided=[]
@@ -122,7 +125,7 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
             else:
                 for j in range(K):
                     vects[j]=np.array([0 for k in range(j)]+[dist]+[0 for k in range(j+1,dim)])+vect0
-
+    
     lmbda=[]
     if counts[0]!=0:
         lmbda.append(Lambda[0]/(tcopy[-1]-tcopy[0]))
@@ -132,7 +135,7 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
                 lmbda.append(Lambda[i]/(tcopy[-1]-tcopy[0]))
             else:
                 lmbda.append(Lambda[i]/(tcopy[-1]-tcopy[0])-Lambda[i-1]/(tcopy[-1]-tcopy[0]))
-
+    
     if plotbool:
         showbool=False
         if plotaxis is None:
@@ -164,21 +167,670 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
             else:
                 plt.show()
     return lmbda
+    
+def scm(f,start,stop,delta,args=[],kwargs={},plotbool=True,plotaxis=None,color="black",alpha=1.0):
+    #This method provides a simple cell mapping analysis to determine all 
+    #persistent cells and all transient cells of the phase space between lower
+    #bound vector start and upper bound vector stop, where each cell has dimensions
+    #vector delta. Infrastructure for plotting the cells is available. Notice 
+    #that this method can only be applied to 1D, 2D, and 3D systems of differential
+    #equations.
+    if len(f(start,*args,**kwargs))==len(start) and len(start)==len(stop) and len(stop)==len(delta):
+        dim=len(start)
+        if 0<dim<=3:
+            N=[int(round((stop[i]-start[i])/delta[i])) for i in range(dim)]
+            plotshowbool=False
+            if plotbool and plotaxis is None:
+                graphsize=9
+                font = {"family": "serif",
+                    "color": "black",
+                    "weight": "bold",
+                    "size": "20"}
+                plotfig=plt.figure(figsize=(graphsize,graphsize))
+                if dim<=2:
+                    plotaxis=plotfig.add_subplot(111)
+                    plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+                    if dim==2:
+                        plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+                else:
+                    plotaxis=Axes3D(plotfig)
+                    plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+                    plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+                    plotaxis.set_zlabel("$\\mathbf{Z}$",fontsize=16,rotation=0)
+                plotaxis.set_title("Approximate System Behavior",fontdict=font)
+                plotaxis.set_xlim([start[0],stop[0]])
+                plotaxis.xaxis.set_tick_params(labelsize=16)
+                if dim>=2:
+                    plotaxis.set_ylim([start[1],stop[1]])
+                    plotaxis.yaxis.set_tick_params(labelsize=16)
+                if dim==3:
+                    plotaxis.set_zlim([start[2],stop[2]])
+                    plotaxis.zaxis.set_tick_params(labelsize=16)
+                plotshowbool=True
+            
+            class cell:
+                def __init__(self,v,index):
+                    if not isinstance(v,np.ndarray):
+                        v=np.array(v)
+                    self.v=v
+                    self.index=index
+                    self.center=self.v+np.array(delta)/2
+                    
+                def trajectory(self,C):
+                    self.trajIndex=cellIndex(f(self.center,*args,**kwargs),C)
+                
+            grids=[[start[i]+j*delta[i] for j in range(N[i])] for i in range(dim)]
+            C=[]
+            size=0
+            for g in product(*grids):
+                C.append(cell(g,size))
+                size+=1
+                
+            def cellIndex(point,C):
+                if all([start[i]<=point[i]<=stop[i] for i in range(dim)]):
+                    res=[math.floor((point[i]-start[i])/delta[i]) for i in range(dim)]
+                    for c in C[sum([res[i]*np.product(N[i+1:]) for i in range(dim-1)])+res[dim-1]:sum([res[i]*np.product(N[i+1:]) for i in range(dim-1)])+res[dim-1]+dim]:
+                        if all([c.v[i]<=point[i]<=c.v[i]+delta[i] for i in range(dim)]):
+                            return c.index
+                    for c in C:
+                        if all([c.v[i]<=point[i]<=c.v[i]+delta[i] for i in range(dim)]):
+                            return c.index
+                else:
+                    return len(C)
+                
+            for c in C:
+                c.trajectory(C)
+                
+            persistentC=[]
+            transientC=[]
+            sinkC=[]
+            for c in C:
+                if (c.index not in persistentC) and (c.index not in transientC) and (c.index not in sinkC):
+                    linkIndex=c.index
+                    linkC=[]
+                    while (linkIndex!=size) and (linkIndex not in linkC) and (linkIndex not in persistentC) and (linkIndex not in transientC) and (linkIndex not in sinkC):
+                        linkC.append(linkIndex)
+                        linkIndex=C[linkIndex].trajIndex
+                    if (linkIndex==size) or (linkIndex in sinkC):
+                        sinkC+=linkC
+                    elif (linkIndex in transientC) or (linkIndex in persistentC):
+                        transientC+=linkC    
+                    else:
+                        for i in range(len(linkC)-1,-1,-1):
+                            if linkC[i]==linkIndex:
+                                transientC+=linkC[:i]
+                                persistentC+=linkC[i:]
+                                break
+                            
+            if plotbool:
+                if dim==1:                    
+                    plotaxis.scatter([C[pc].center[0] for pc in persistentC],[0 for pc in persistentC],color=color,alpha=alpha)
+                    plotaxis.scatter([C[tc].center[0] for tc in transientC],[0 for tc in transientC],s=min([10*max(delta),10]),color=color,alpha=alpha)
+                elif dim==2:
+                    plotaxis.scatter([C[pc].center[0] for pc in persistentC],[C[pc].center[1] for pc in persistentC],color=color,alpha=alpha)
+                    plotaxis.scatter([C[tc].center[0] for tc in transientC],[C[tc].center[1] for tc in transientC],s=min([10*max(delta),10]),color=color,alpha=alpha)
+                else:
+                    plotaxis.scatter([C[pc].center[0] for pc in persistentC],[C[pc].center[1] for pc in persistentC],[C[pc].center[2] for pc in persistentC],color=color,alpha=alpha)
+                    plotaxis.scatter([C[tc].center[0] for tc in transientC],[C[tc].center[1] for tc in transientC],[C[tc].center[2] for tc in transientC],s=min([10*max(delta),10]),color=color,alpha=alpha)
+                if plotshowbool:
+                    plt.show()
+            else:
+                return [C[pc].center for pc in persistentC], [C[tc].center for tc in transientC]
+        else:
+            print("Unable to plot that number of dimensions; restrict the dimension of the phase space")
+    else:
+        print("Error in Cell Mapping: check the length of your inputted vectors")
+        print("Length of output of f: %s"%len(f(start,*args,**kwargs)))
+        print("Length of start: %i"%len(start))
+        print("Length of stop: %i"%len(stop))
+        print("Length of delta: %i"%len(delta))
+
+def gcm(f,start,stop,delta,args=[],kwargs={},tol=1e-6,plotbool=True,plotaxis=None,color="black",alpha=1.0):
+    #This method provides a generalized cell mapping analysis to determine all 
+    #persistent, transient, and border cells of the phase space between lower
+    #bound vector start and upper bound vector stop, where each cell has dimensions
+    #vector delta. The variable tol controls the tolerance of what is to be 
+    #considered zero or not (useful when applying linear algebraic methods)
+    #Infrastructure for plotting the cells is available. Notice that this method
+    #can only be applied to 1D, 2D, and 3D systems of differential equations.
+    if len(f(start,*args,**kwargs))==len(start) and len(start)==len(stop) and len(stop)==len(delta):
+        dim=len(start)
+        if 0<dim<=3:
+            N=[int(round((stop[i]-start[i])/delta[i])) for i in range(dim)]
+            plotshowbool=False
+            if plotbool and plotaxis is None:
+                graphsize=9
+                font = {"family": "serif",
+                    "color": "black",
+                    "weight": "bold",
+                    "size": "20"}
+                plotfig=plt.figure(figsize=(graphsize,graphsize))
+                if dim<=2:
+                    plotaxis=plotfig.add_subplot(111)
+                    plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+                    if dim==2:
+                        plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+                else:
+                    plotaxis=Axes3D(plotfig)
+                    plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+                    plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+                    plotaxis.set_zlabel("$\\mathbf{Z}$",fontsize=16,rotation=0)
+                plotaxis.set_title("Approximate System Behavior",fontdict=font)
+                plotaxis.set_xlim([start[0],stop[0]])
+                plotaxis.xaxis.set_tick_params(labelsize=16)
+                plotaxis.yaxis.set_tick_params(labelsize=16)
+                if dim>=2:
+                    plotaxis.set_ylim([start[1],stop[1]])
+                if dim==3:
+                    plotaxis.set_zlim([start[2],stop[2]])
+                    plotaxis.zaxis.set_tick_params(labelsize=16)
+                plotshowbool=True
+            
+            class cell:
+                def __init__(self,v,index):
+                    if not isinstance(v,np.ndarray):
+                        v=np.array(v)
+                    self.v=v
+                    self.index=index
+                    self.center=self.v+np.array(delta)/2
+                    
+                def probs(self,C,data,rows,cols,count=3):
+                    if count==1:
+                        grids=[[self.v[i]+delta[i]/2] for i in range(dim)]
+                    else:
+                        grids=[[self.v[i]+j*delta[i]/(count-1) for j in range(count)] for i in range(dim)]
+                    self.probs=[]
+                    for g in product(*grids):
+                        res=cellIndex(f(g,*args,**kwargs),C)
+                        uniquebool=True
+                        for i in range(len(self.probs)):
+                            if res==self.probs[i][0]:
+                                uniquebool=False
+                                self.probs[i][1]+=count**(-dim)
+                                break
+                        if uniquebool:
+                            self.probs.append([res,count**(-dim)])
+                    data+=[p[1] for p in self.probs]
+                    rows+=[self.index for p in self.probs]
+                    cols+=[p[0] for p in self.probs]
+                    
+            grids=[[start[i]+j*delta[i] for j in range(N[i])] for i in range(dim)]
+            C=[]
+            size=0
+            for g in product(*grids):
+                C.append(cell(g,size))
+                size+=1
+                
+            def cellIndex(point,C):
+                if all([start[i]<=point[i]<=stop[i] for i in range(dim)]):
+                    res=[math.floor((point[i]-start[i])/delta[i]) for i in range(dim)]
+                    for c in C[sum([res[i]*np.product(N[i+1:]) for i in range(dim-1)])+res[dim-1]:sum([res[i]*np.product(N[i+1:]) for i in range(dim-1)])+res[dim-1]+dim]:
+                        if all([c.v[i]<=point[i]<=c.v[i]+delta[i] for i in range(dim)]):
+                            return c.index
+                    for c in C:
+                        if all([c.v[i]<=point[i]<=c.v[i]+delta[i] for i in range(dim)]):
+                            return c.index
+                else:
+                    return len(C)
+                
+            data,rows,cols=[1],[size],[size]
+            for c in C:
+                c.probs(C,data,rows,cols)
+            P=sparsepy.coo_matrix((data,(rows,cols)),shape=(size+1,size+1)).tolil()-sparsepy.identity(size+1)
+            
+            u,s,vt=sparsela.svds(P.transpose(),k=size,tol=tol)
+            if s[len(s)-1]==0:
+                pivot=len(s)
+                for i in range(len(s)-2,-1,-1):
+                    if abs(s[i])>tol:
+                        pivot=i+1
+                        break
+                Sol=vt[pivot:].tolist()
+            else:
+                Sol=[]
+            for sol in Sol:
+                sol[size]=0.0
+            sol=np.zeros(size+1)
+            sol[size]=1.0
+            Sol.append(sol)
+
+            persistentGroups=[[i for i in range(len(sol)) if abs(sol[i])>tol] for sol in Sol]
+            if plotbool:
+                for i in range(len(persistentGroups)-1):
+                    if dim==1:                    
+                        plotaxis.scatter([C[pc].center[0] for pc in persistentGroups[i]],
+                                         [0 for pc in persistentGroups[i]],color=color,alpha=alpha)
+                    elif dim==2:
+                        plotaxis.scatter([C[pc].center[0] for pc in persistentGroups[i]],
+                                         [C[pc].center[1] for pc in persistentGroups[i]],color=color,alpha=alpha)
+                    else:
+                        plotaxis.scatter([C[pc].center[0] for pc in persistentGroups[i]],
+                                         [C[pc].center[1] for pc in persistentGroups[i]],
+                                         [C[pc].center[2] for pc in persistentGroups[i]],color=color,alpha=alpha)
+                        
+            transientC=[i for i in range(size) if i not in sum(persistentGroups,[])]
+            if len(transientC)>0:
+                T=P[np.ix_(transientC,transientC)]
+                B=[-np.array([sum([P[ti,elem] for elem in pgroup]) for ti in transientC]) for pgroup in persistentGroups]
+                Absorb=[sparsela.spsolve(T,b) for b in B]
+                
+                transientGroups=[[transientC[j] for j in range(len(transientC)) if abs(Absorb[i][j])>0.5-tol] for i in range(len(persistentGroups))]
+                borderGroup=[i for i in transientC if i not in sum(transientGroups,[])]
+            
+                if plotbool:
+                    for i in range(len(transientGroups)-1):
+                        if dim==1:                    
+                            plotaxis.scatter([C[tc].center[0] for tc in transientGroups[i]],
+                                             [0 for pc in transientGroups[i]],s=min([10*max(delta),10]),color=color,alpha=alpha)
+                        elif dim==2:
+                            plotaxis.scatter([C[tc].center[0] for tc in transientGroups[i]],
+                                             [C[tc].center[1] for tc in transientGroups[i]],s=min([10*max(delta),10]),color=color,alpha=alpha)
+                        else:
+                            plotaxis.scatter([C[tc].center[0] for tc in transientGroups[i]],
+                                             [C[tc].center[1] for tc in transientGroups[i]],
+                                             [C[tc].center[2] for tc in transientGroups[i]],s=min([10*max(delta),10]),color=color,alpha=alpha)
+                    if dim==1:
+                        plotaxis.scatter([C[bc].center[0] for bc in borderGroup],[0 for bc in borderGroup],facecolor="none",edgecolor=color,linewidth=2,alpha=alpha)
+                    elif dim==2:
+                        plotaxis.scatter([C[bc].center[0] for bc in borderGroup],[C[bc].center[1] for bc in borderGroup],facecolor="none",edgecolor=color,linewidth=2,alpha=alpha)
+                    else:
+                        plotaxis.scatter([C[bc].center[0] for bc in borderGroup],[C[bc].center[1] for bc in borderGroup],[C[bc].center[2] for bc in borderGroup],facecolor="none",edgecolor=color,linewidth=2,alpha=alpha)
+                    if plotshowbool:
+                            plt.show()
+                            
+            if not plotbool:
+                if len(transientC)>0:
+                    return [[C[pc].center for pc in pgroup] for pgroup in persistentGroups[:-1]],[[C[tc].center for tc in tgroup] for tgroup in transientGroups[:-1]],[C[bc].center for bc in borderGroup]
+                else:
+                    return [[C[pc].center for pc in pgroup] for pgroup in persistentGroups[:-1]]
+        else:
+            print("Unable to plot that number of dimensions; restrict the dimension of the phase space")
+    else:
+        print("Error in Cell Mapping: check the length of your inputted vectors")
+        print("Length of output of f: %s"%len(f(start,*args,**kwargs)))
+        print("Length of start: %i"%len(start))
+        print("Length of stop: %i"%len(stop))
+        print("Length of delta: %i"%len(delta))
+
+def manifold(f,point,start,stop,dist,maxlevel,args=[],kwargs={},stable=False,easy=False,plotaxis=None,colormap=None,savefigName=None,color="black",alpha=1.0):
+    #This method approximates the manifolds of an equilibrium point of a system
+    #of differential equations between lower bound vector start and upper bound
+    #vector stop. Variable f represents the system, while variable point is the 
+    #equilibrium point. The method iteratively adds a front to the manifold, and
+    #variable dist determines how far the new front is from the old front. Variable
+    #stable determines whether the manifold is stable (stable=True) or unstable
+    #(stable=False). Variable easy controls whether the RK4 numerical
+    #integration method (easy=True) or the the RK14(12) numerical integration 
+    #method (easy=False) is used. Infrastructure for plotting the manifold 
+    #is available. A colormap option is available to when plotting 
+    #(colormap values are based on the z-coordinate).
+    dim=len(point)
+    if not isinstance(point,np.ndarray):
+        point=np.array(point)
+    plotshowbool=False
+    maxlevel=max(round(maxlevel),0)
+    if plotaxis is None:
+        graphsize=9
+        font = {"family": "serif",
+            "color": "black",
+            "weight": "bold",
+            "size": "20"}
+        labelfont = {"family": "serif",
+                "color": "black",
+                "weight": "bold",
+                "size": "16"}
+        plotfig=plt.figure(figsize=(graphsize,graphsize))
+        if dim==1:
+            plotaxis=plotfig.add_subplot(111)
+            if stable:
+                plotaxis.set_title("Stable Manifold of (%0.2f)"%(point[0]),fontdict=font)
+            else:
+                plotaxis.set_title("Unstable Manifold of (%0.2f)"%(point[0]),fontdict=font)
+            plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+            plotaxis.set_ylabel("$Iteration$",fontdict=labelfont,rotation=0)
+            plotaxis.xaxis.set_tick_params(labelsize=16)
+            plotaxis.yaxis.set_tick_params(labelsize=16)
+            plotshowbool=True
+        elif dim==2:
+            plotaxis=plotfig.add_subplot(111)
+            if stable:
+                plotaxis.set_title("Stable Manifold of (%0.2f,%0.2f)"%(point[0],point[1]),fontdict=font)
+            else:
+                plotaxis.set_title("Unstable Manifold of (%0.2f,%0.2f)"%(point[0],point[1]),fontdict=font)
+            plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+            plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+            plotaxis.xaxis.set_tick_params(labelsize=16)
+            plotaxis.yaxis.set_tick_params(labelsize=16)
+            plotshowbool=True
+        elif dim==3:
+            plotaxis=Axes3D(plotfig)
+            if stable:
+                plotaxis.set_title("Stable Manifold of (%0.2f,%0.2f,%0.2f)"%(point[0],point[1],point[2]),fontdict=font)
+            else:
+                plotaxis.set_title("Unstable Manifold of (%0.2f,%0.2f,%0.2f)"%(point[0],point[1],point[2]),fontdict=font)
+            plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+            plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+            plotaxis.set_zlabel("$\\mathbf{Z}$",fontsize=16,rotation=0)
+            plotaxis.xaxis.set_tick_params(labelsize=16)
+            plotaxis.yaxis.set_tick_params(labelsize=16)
+            plotaxis.zaxis.set_tick_params(labelsize=16)
+            plotshowbool=True
+        
+    Lin=mtb.jacobian(f,point)
+    eigval,eigvect=npla.eig(Lin)
+    eigvect=eigvect.transpose()
+    
+    if not stable:
+        seed=[eigvect[i].real for i in range(len(eigval)) if eigval[i].real>0]
+        seedDim=len(seed)
+    else:
+        seed=[eigvect[i].real for i in range(len(eigval)) if eigval[i].real<0]
+        seedDim=len(seed)
+        
+    for i in range(len(seed)):
+        seed[i]=max(1e-4*dist,1e-4)*seed[i]/npla.norm(seed[i])
+    
+    filtered=False
+    while not filtered and len(seed)>0:
+        filtered=True
+        for i in range(len(seed)):
+            for j in range(i+1,len(seed)):
+                if np.array_equal(seed[i],seed[j]):
+                    del seed[j]
+                    filtered=False
+                    break
+            if not filtered:
+                break
+    
+    def completeSeed(seed,seedDim,thetalimit):
+        if len(seed)<dim:
+            if dim==2:
+                if thetalimit==math.pi/2:
+                    theta=np.array([math.pi/2,3*math.pi/2])
+                else:
+                    theta=gtb.hammersley(50,1,points=False)[0]
+                    for i in range(len(theta)):
+                        if theta[i]<=0.5:
+                            theta[i]=2*(math.pi-2*thetalimit)*theta[i]+thetalimit
+                        else:
+                            theta[i]=2*(math.pi-2*thetalimit)*(theta[i]-0.5)+thetalimit+math.pi
+                radius=npla.norm(seed[0])
+                thetaShift=math.atan2(seed[0][1],seed[0][0])
+                best=seed[0]
+                X=point[0]+radius*np.cos(theta)*math.cos(thetaShift)-radius*np.sin(theta)*math.sin(thetaShift)
+                Y=point[1]+radius*np.cos(theta)*math.sin(thetaShift)+radius*np.sin(theta)*math.cos(thetaShift)
+                bestcorrelation=0
+                for i in range(len(X)):
+                    flow=f([X[i],Y[i]],*args,**kwargs)
+                    correlation=(X[i]-point[0])*flow[0]+(Y[i]-point[1])*flow[1]
+                    if stable:
+                        if correlation<bestcorrelation:
+                            best=np.array([X[i],Y[i]])
+                            bestcorrelation=correlation
+                    else:
+                        if correlation>bestcorrelation:
+                            best=np.array([X[i],Y[i]])
+                            bestcorrelation=correlation
+                if bestcorrelation!=0:
+                    seed.append(best-point)
+            if dim==3:
+                theta,phi=gtb.hammersley(500,2,points=False)
+                if len(seed)==1:
+                    radius=npla.norm(seed[0])
+                    theta=(math.pi-2*thetalimit)*theta+thetalimit
+                    thetaShift=math.acos(seed[0][2]/npla.norm(seed[0]))
+                    phiShift=math.atan2(seed[0][1],seed[0][0])
+                    best=seed[0]
+                elif len(seed)==2:
+                    radius=npla.norm(seed[0])
+                    for i in range(len(theta)):
+                        if theta[i]<=0.5:
+                            theta[i]=2*(math.pi/2-thetalimit)*theta[i]
+                        elif theta[i]>0.5:
+                            theta[i]=2*(math.pi/2-thetalimit)*theta[i]+math.pi/2+thetalimit
+                    res=np.cross(seed[0],seed[1])
+                    thetaShift=math.acos(res[2]/npla.norm(res))
+                    phiShift=math.atan2(res[1],res[0])
+                    best=res
+                    
+                phi=2*math.pi*phi
+                X=point[0]+radius*np.sin(theta)*np.cos(phi)*math.cos(thetaShift)*math.cos(phiShift)-radius*np.sin(theta)*np.sin(phi)*math.sin(phiShift)+radius*np.cos(theta)*math.sin(thetaShift)*math.cos(phiShift)
+                Y=point[1]+radius*np.sin(theta)*np.cos(phi)*math.cos(thetaShift)*math.sin(phiShift)+radius*np.sin(theta)*np.sin(phi)*math.cos(phiShift)+radius*np.cos(theta)*math.sin(thetaShift)*math.sin(phiShift)
+                Z=point[2]-radius*np.sin(theta)*np.cos(phi)*math.sin(thetaShift)+radius*np.cos(theta)*math.cos(thetaShift)
+                
+                bestcorrelation=0
+                for i in range(len(X)):
+                    flow=f([X[i],Y[i],Z[i]],*args,**kwargs)
+                    correlation=(X[i]-point[0])*flow[0]+(Y[i]-point[1])*flow[1]+(Z[i]-point[2])*flow[2]
+                    if stable:
+                        if correlation<bestcorrelation:
+                            best=np.array([X[i],Y[i],Z[i]])
+                            bestcorrelation=correlation
+                    else:
+                        if correlation>bestcorrelation:
+                            best=np.array([X[i],Y[i],Z[i]])
+                            bestcorrelation=correlation
+                if bestcorrelation!=0:
+                    seed.append(best-point)
+    
+    count=0
+    countlimit=20
+    while (seedDim==2 and len(seed)==1) and count<=countlimit:
+        completeSeed(seed,2,math.pi/(count+2))
+        count+=1
+    count=0
+    while (seedDim==3 and len(seed)==1) and count<=countlimit:
+        completeSeed(seed,3,math.pi/(count+2))
+        count+=1
+    count=0
+    while (seedDim==3 and len(seed)==2) and count<=countlimit:
+        completeSeed(seed,3,math.pi/(count+2))
+        count+=1
+    
+    class vertex:
+        def __init__(self,coord):
+            if not isinstance(coord,np.ndarray):
+                coord=np.array(coord)
+            self.coord=coord
+            self.traj=None
+            self.staticbool=False
+            self.expandbool=True
+            
+        def trajectory(self):
+            if self.traj is None:
+                d=abs(dist)
+                if stable:
+                    d*=-1.0 
+                zero=1e-10
+                
+                def step(vect,d):
+                    flow=np.array(f(vect.tolist(),*args,**kwargs))
+                    fnorm=npla.norm(flow)
+                    if not easy and fnorm>2.5e-6:
+                        k2=np.array(f((vect+d*flow/(2*fnorm)).tolist(),*args,**kwargs))
+                        normk2=npla.norm(k2)
+                        if normk2>zero:
+                            k3=np.array(f((vect+d*k2/(2*npla.norm(k2))).tolist(),*args,**kwargs))
+                        else:
+                            k3=flow.copy()
+                        normk3=npla.norm(k3)
+                        if normk3>zero:
+                            k4=np.array(f((vect+d*k3/npla.norm(k3)).tolist(),*args,**kwargs))
+                        else:
+                            k4=flow.copy()
+                        k1234=flow+2*k2+2*k3+k4
+                        normk1234=npla.norm(k1234)
+                        if normk1234>zero:
+                            return vect+d*k1234/normk1234
+                        else:
+                            return vect
+                    elif fnorm>zero:
+                        return vect+d*flow/fnorm
+                    else:
+                        return vect
+                    
+                if not easy:
+                    trajold=self.coord.copy()
+                    traj=step(self.coord.copy(),d)
+                    count=1
+                    while sum([(traj[i]-trajold[i])**2 for i in range(dim)])>(1e-2*dist)**2 and count<=20:
+                        count+=1
+                        trajold=traj.copy()
+                        traj=self.coord.copy()
+                        for i in range(count):
+                            traj=step(traj,d/count)
+                else:
+                    traj=step(self.coord.copy(),d)
+                            
+                for i in range(len(traj)):
+                    if traj[i]<=start[i]:
+                        traj[i]=start[i]
+                    elif traj[i]>=stop[i]:
+                        traj[i]=stop[i]
+                        
+                self.traj=vertex(traj)
+                self.staticbool=all([self.coord[i]==self.traj.coord[i] for i in range(len(self.coord))])
+            
+    class simplex:
+        def __init__(self,V,level):          
+            self.V=V
+            self.expandbool=[True for v in self.V]
+            self.level=level
+            
+        def expand(self,dist):
+            res=[]
+            for i in range(len(self.V)):
+                if not self.expandbool[i] and all([self.expandbool[j] for j in range(len(self.V)) if j!=i]):
+                    index=[j for j in range(len(self.V)) if j!=i]
+                    for ind in index:
+                        self.V[ind].trajectory()
+                    if any([not self.V[ind].staticbool for ind in index]):
+                        splitbool=[]
+                        for j in range(len(index)):
+                            for k in range(j+1,len(index)):
+                                if sum([(self.V[index[j]].traj.coord[l]-self.V[index[k]].traj.coord[l])**2 for l in range(dim)])>=2*dist**2:
+                                    splitbool.append(True)
+                                else:
+                                    splitbool.append(False)
+                        if all(splitbool):
+                            vertices=[]
+                            vIndices=[]
+                            for j in range(len(index)):
+                                self.expandbool[index[j]]=False
+                                for k in range(j+1,len(index)):
+                                    v=vertex((self.V[index[j]].coord+self.V[index[k]].coord)/2)
+                                    v.trajectory()
+                                    vertices.append(v)
+                                    vIndices.append([j,k])
+                            for j in range(len(index)):
+                                s=simplex([self.V[index[j]],self.V[index[j]].traj]+[vertices[k].traj for k in range(len(vertices)) if j in vIndices[k]],self.level+1)
+                                s.expandbool[0]=False
+                                res.append(s)
+                            if len(self.V)==4:
+                                s=simplex([self.V[index[0]]]+[vertices[j].traj for j in range(len(vertices))],self.level+1)
+                                s.expandbool[0]=False
+                                res.append(s)
+                        else:
+                            if len(self.V)==3:
+                                for j in range(len(index)):
+                                    self.expandbool[index[j]]=False
+                                if sum([(self.V[index[0]].coord[j]-self.V[index[1]].traj.coord[j])**2 for j in range(dim)])<=sum([(self.V[index[1]].coord[j]-self.V[index[0]].traj.coord[j])**2 for j in range(dim)]):
+                                    s=simplex([self.V[index[0]],self.V[index[0]].traj,self.V[index[1]].traj],self.level+1)
+                                else:
+                                    s=simplex([self.V[index[1]],self.V[index[0]].traj,self.V[index[1]].traj],self.level+1)
+                                s.expandbool[0]=False
+                                res.append(s)
+                            elif len(self.V)==4:
+                                for ind in index:
+                                        self.V[ind]=self.V[ind].traj
+                break
+            return res
+                
+        def draw(self,plotaxis,color,alpha):
+            if dim==1:
+                if len(self.V)==2:
+                    plotaxis.plot([self.V[i].coord[0] for i in range(2)],
+                                   [self.level,self.level+1],color=color,alpha=alpha)
+            elif dim==2:
+                if len(self.V)==2:
+                    plotaxis.plot([self.V[i].coord[0] for i in range(2)],
+                                  [self.V[i].coord[1] for i in range(2)],color=color,alpha=alpha)
+                elif len(self.V)==3:
+                    plotaxis.plot([self.V[i].coord[0] for i in range(3)]+[self.V[0].coord[0]],
+                                  [self.V[i].coord[1] for i in range(3)]+[self.V[0].coord[1]],color=color,alpha=alpha)
+            elif dim==3:
+                viewWeights=[math.sin((90-plotaxis.elev)*math.pi/180)*math.cos(plotaxis.azim*math.pi/180),
+                             math.sin((90-plotaxis.elev)*math.pi/180)*math.sin(plotaxis.azim*math.pi/180),
+                             math.cos((90-plotaxis.elev)*math.pi/180)]
+                if len(self.V)==2:
+                    plotaxis.plot([self.V[i].coord[0] for i in range(2)],
+                                  [self.V[i].coord[1] for i in range(2)],
+                                  [self.V[i].coord[2] for i in range(2)],
+                                  zorder=sum([(self.V[0].coord[i]-start[i]+self.V[1].coord[i]-stop[i])/2*viewWeights[i] for i in range(3)]),
+                                  color=color,alpha=alpha)
+                elif len(self.V)==3:
+                    plotaxis.plot([self.V[i].coord[0] for i in range(3)]+[self.V[0].coord[0]],
+                                  [self.V[i].coord[1] for i in range(3)]+[self.V[0].coord[1]],
+                                  [self.V[i].coord[2] for i in range(3)]+[self.V[0].coord[2]],
+                                  zorder=sum([((self.V[0].coord[i]+self.V[1].coord[i]+self.V[2].coord[i])/3-(start[i]+stop[i])/2)*viewWeights[i] for i in range(3)]),
+                                  color=color,alpha=alpha)
+                elif len(self.V)==4:
+                    plotaxis.plot([self.V[i].coord[0] for i in range(1,4)]+[self.V[1].coord[0]],
+                                  [self.V[i].coord[1] for i in range(1,4)]+[self.V[1].coord[1]],
+                                  [self.V[i].coord[2] for i in range(1,4)]+[self.V[1].coord[2]],
+                                  zorder=sum([((self.V[1].coord[i]+self.V[2].coord[i]+self.V[3].coord[i])/3-(start[i]+stop[i])/2)*viewWeights[i] for i in range(3)]),
+                                  color=color,alpha=alpha)
+
+    if len(seed) not in [1,2,3]:
+        if stable:
+            print("The stable manifold of your inputted point does not exist")
+        else:
+            
+            print("The unstable manifold of your inputted point does not exist")
+    elif maxlevel>0:
+        vertex0=vertex(point)
+        Simplices=[]
+        V=[[vertex(point+seed[i]),vertex(point-seed[i])] for i in range(len(seed))]
+        for v in V:
+            v[0].trajectory()
+            v[1].trajectory()
+        Vtraj=[[V[i][0].traj,V[i][1].traj] for i in range(len(seed))]
+        for vset in product(*Vtraj):
+            Simplices.append(simplex([vertex0]+list(vset),1))
+        for i in range(len(Simplices)):
+            Simplices[i].expandbool[0]=False
+        
+        for i in range(maxlevel):
+            baseSimplices=[s for s in Simplices]
+            for bs in baseSimplices:
+                if any(bs.expandbool):
+                    Simplices+=bs.expand(dist)
+    
+        for s in Simplices:
+            if colormap is not None:
+                s.draw(plotaxis,colormap(s.level/maxlevel),alpha)
+            else:
+                s.draw(plotaxis,color,alpha)
+    if plotshowbool:
+        if savefigName is not None and isinstance(savefigName,str):
+            plt.savefig(savefigName+".png",bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
 def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt):
-    """This method is a universal explicit Runge Kutta numerical integration 
-    technique using Butcher Tableau a in R^2, b in R, and C in R. Variable f
-    represents the system of differential equations while variable vect0 is the
-    initial position of the solution. The solution is restricted by lower bound
-    vector start and upper bound vector stop, while time is restricted between
-    tstart and tstop, with a time step variable of deltat. Variable inform allows
-    the user to receive information about the integration process. Variable rev
-    reverses the direction of the solution, as if the solution is being plotted
-    over negative time. Variable autonomous dictates whether f is an autonomous
-    system of differential equations. Variable adapt allows for adaptive step sizes
-    in the integration process, allowing for potential increased accuracy and 
-    potential increased speed."""
-    
+    #This method is a universal explicit Runge Kutta numerical integration 
+    #technique using Butcher Tableau a in R^2, b in R, and C in R. Variable f
+    #represents the system of differential equations while variable vect0 is the
+    #initial position of the solution. The solution is restricted by lower bound
+    #vector start and upper bound vector stop, while time is restricted between
+    #tstart and tstop, with a time step variable of deltat. Variable inform allows
+    #the user to receive information about the integration process. Variable rev
+    #reverses the direction of the solution, as if the solution is being plotted
+    #over negative time. Variable autonomous dictates whether f is an autonomous
+    #system of differential equations. Variable adapt allows for adaptive step sizes
+    #in the integration process, allowing for potential increased accuracy and 
+    #potential increased speed.
     if len(vect0)==len(start) and len(start)==len(stop):
         dim=len(vect0)
         res = np.array([float(vect0[i]) for i in range(dim)])
@@ -199,25 +851,25 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
                 doubledbool=False
                 while not adaptedbool:
                     adaptedbool=True
-
+                    
                     cRes=np.array([sol[i][len(tau)-1] for i in range(dim)])
                     K1=np.array(f(cRes,*args,**kwargs))
-
+                    
                     k2=np.array(f(cRes+alpha*deltat*K1,*args,**kwargs))
                     Res1=cRes+0.5*alpha*deltat*(K1+k2)
                     k1=np.array(f(Res1,*args,**kwargs))
                     k2=np.array(f(Res1+alpha*deltat*k1,*args,**kwargs))
                     Res2=Res1+0.5*alpha*deltat*(k1+k2)
-
+                    
                     k2=np.array(f(cRes+0.5*alpha*deltat*K1,*args,**kwargs))
                     Reshalf=cRes+0.25*alpha*deltat*(K1+k2)
                     k1=np.array(f(Reshalf,*args,**kwargs))
                     k2=np.array(f(Reshalf+0.5*alpha*deltat*k1,*args,**kwargs))
                     Reshalf=Reshalf+0.25*alpha*deltat*(k1+k2)
-
+                    
                     k2=np.array(f(cRes+2.0*alpha*deltat*K1,*args,**kwargs))
                     Resdouble=cRes+alpha*deltat*(K1+k2)
-
+                    
                     if sum([(Reshalf[i]-Res1[i])**2 for i in range(dim)])>relErrTolmax and not doubledbool and alpha>=1.0/32.0:
                         alpha*=0.5
                         adaptedbool=False
@@ -239,7 +891,7 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
                                 alpha*=2.0
                                 adaptedbool=False
                                 doubledbool=True
-
+                    
             K = []
             for i in range(len(b)):
                 if autonomous:
@@ -260,7 +912,7 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
             else:
                 for i in range(dim):
                     res[i]+=alpha * deltat * sum([float(b[j]) * K[j][i] for j in range(len(K))])            
-
+            
             restau+=alpha*deltat
             if restau>=tstop:
                 if abs(tstop-restau)<=abs(tstop-restau-alpha*deltat):
@@ -338,50 +990,44 @@ def rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,r
         print("Length of start: %i"%len(start))
         print("Length of stop: %i"%len(stop))
         return [], []
-
-def euler(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    """Explicit Euler Forward Numerical Integration Algorithm"""
     
+def euler(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
+    #Explicit Euler Forward Numerical Integration Algorithm
     a,b,c=eulerTableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk2(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    """Explicit Midpoint Method Numerical Integration Algorithm"""
-    
+    #Explicit Midpoint Method Numerical Integration Algorithm
     a,b,c=rk2Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk4(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    """Explicit RK4 Numerical Integration Algorithm"""
-    
+    #Explicit RK4 Numerical Integration Algorithm
     a,b,c=rk4Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk12(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    """Explicit RK12(10) Numerical Integration Algorithm"""
-    
+    #Explicit RK12(10) Numerical Integration Algorithm
     a,b,c=rk12Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def rk14(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,autonomous=True,adapt=False):
-    """Explicit RK14(12) Numerical Integration Algorithm"""
-    
+    #Explicit RK14(12) Numerical Integration Algorithm
     a,b,c=rk14Tableau()
     return rungeKutta(a,b,c,f,vect0,args,kwargs,start,stop,tstart,tstop,deltat,inform,rev,autonomous,adapt)
 
 def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,rev=False,adapt=False):
-    """This method is a Verlet numerical double integration algorithm. Variable f
-    represents the system of differential equations while variable vect0 is the
-    initial position of the solution, organized as [x_1(0),x_2(0),...x_n(0),
-    dx_1(0)/dt,dx_2(0)/dt,...dx_n(0)/dt]. The solution is restricted by lower 
-    bound vector start and upper bound vector stop, while time is restricted 
-    between tstart and tstop, with a time step variable of deltat. Variable 
-    inform allows the user to receive information about the integration process.
-    Variable rev reverses the direction of the solution, as if the solution is
-    being plotted over negative time. Variable adapt allows for adaptive step 
-    sizes in the integration process, allowing for potential increased accuracy
-    and potential increased speed."""
-    
+    #This method is a Verlet numerical double integration algorithm. Variable f
+    #represents the system of differential equations while variable vect0 is the
+    #initial position of the solution, organized as [x_1(0),x_2(0),...x_n(0),
+    #dx_1(0)/dt,dx_2(0)/dt,...dx_n(0)/dt]. The solution is restricted by lower 
+    #bound vector start and upper bound vector stop, while time is restricted 
+    #between tstart and tstop, with a time step variable of deltat. Variable 
+    #inform allows the user to receive information about the integration process.
+    #Variable rev reverses the direction of the solution, as if the solution is
+    #being plotted over negative time. Variable adapt allows for adaptive step 
+    #sizes in the integration process, allowing for potential increased accuracy
+    #and potential increased speed.
     if len(vect0)%2==0 and int(len(vect0)/2)==len(start) and len(start)==len(stop):
         dim = int(len(vect0)/2)
         vect0=np.array(vect0[0:len(vect0):2])
@@ -417,7 +1063,7 @@ def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,
                         Reshalf=2*Reshalf-res1+(0.5*alpha1*deltat)**2*np.array(f(Reshalf,*args,**kwargs))
                         Res2=2*Res1-res1+(alpha1*deltat)**2*np.array(f(Res1,*args,**kwargs))
                         Resdouble=2*res1-res2+(2*alpha1*deltat)**2*np.array(f(res1,*args,**kwargs))
-
+                    
                     if sum([(Reshalf[i]-Res1[i])**2 for i in range(dim)])>relErrTolmax and not doubledbool and alpha1>=1.0/32.0:
                         alpha1*=0.5
                         adaptedbool=False
@@ -463,33 +1109,29 @@ def verlet(f,vect0,start,stop,tstart,tstop,deltat,args=[],kwargs={},inform=True,
         return [], []
 
 def eulerTableau():
-    """Explicit Euler Butcher Tableau"""
-    
+    #Explicit Euler Butcher Tableau
     c=[0.0]
     b=[1.0]
     a=[[0.0]]
     return a,b,c
 
 def rk2Tableau():
-    """Explicit RK2 Butcher Tableau"""
-    
+    #Explicit RK2 Butcher Tableau
     c=[0.0,0.5]
     b=[0.0,1.0]
     a=[[0.0,0.0],[0.5,0.0]]
     return a,b,c
 
 def rk4Tableau():
-    """Explicit RK4 Butcher Tableau"""
-    
+    #Explicit RK4 Butcher Tableau
     c = [0.0,0.5,0.5,1.0]
     b = [1.0/6.0,1.0/3.0,1.0/3.0,1.0/6.0]
     a = [[0.0,0.0,0.0,0.0],[0.5,0.0,0.0,0.0],[0.0,0.5,0.0,0.0],[0.0,0.0,1.0,0.0]]
     return a,b,c
 
 def rk12Tableau():
-    """Explicit RK12(10) Butcher Tableau
-    (source = http://sce.uhcl.edu/rungekutta/rk1210.txt)"""
-    
+    #Explicit RK12(10) Butcher Tableau
+    #(source = http://sce.uhcl.edu/rungekutta/rk1210.txt)
     c = np.zeros(25)
     c[1] = 0.2
     c[2] = 0.5555555555555556
@@ -515,7 +1157,7 @@ def rk12Tableau():
     c[22] = 0.5555555555555556
     c[23] = 0.2
     c[24] = 1.0
-
+    
     b = np.zeros(25)
     b[0] = 0.023809523809523808
     b[1] = 0.0234375
@@ -538,7 +1180,7 @@ def rk12Tableau():
     b[22] = -0.03125
     b[23] = -0.0234375
     b[24] = 0.023809523809523808
-
+    
     a=np.zeros((25,25))
     a[1][0] = 0.2
     a[2][0] = -0.21604938271604937
@@ -713,9 +1355,7 @@ def rk12Tableau():
     return a,b,c
 
 def rk14Tableau():
-    """Explicit RK14(12) Butcher Tableau 
-    (source = http://sce.uhcl.edu/rungekutta/rk1412.txt)"""
-    
+    # Explicit RK14(12) Butcher Tableau (source = http://sce.uhcl.edu/rungekutta/rk1412.txt)
     c=np.zeros(35)
     c[1] = 0.1111111111111111
     c[2] = 0.5555555555555556
@@ -751,7 +1391,7 @@ def rk14Tableau():
     c[32] = 0.5555555555555556
     c[33] = 0.1111111111111111
     c[34] = 1.0
-
+    
     b=np.zeros(35)
     b[0] = 0.017857142857142856
     b[1] = 0.005859375
