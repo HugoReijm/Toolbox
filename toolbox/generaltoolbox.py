@@ -5,11 +5,18 @@ from itertools import product
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d import art3d
-    
+import matplotlib.colors as pltcolors
+from matplotlib.collections import LineCollection
+        
+graphsize=9
+font = {"family": "serif",
+    "color": "black",
+    "weight": "bold",
+    "size": "20"}
+        
 def decimal_to_fraction(x,n=2):
-    """This method converts a decimal x rounded off to the nth decimal place
-    into a list containing it's numerator and denominator (in that order)."""
-    
+    #This method converts a decimal x rounded off to the nth decimal place
+    #into a list containing it's numerator and denominator (in that order). 
     if not isinstance(n,int):
         n=int(n)
     if x==0.0:
@@ -19,7 +26,7 @@ def decimal_to_fraction(x,n=2):
         x=round(x,n)
         num=round(x*10**n)
         den=10**n
-
+        
         c2=0
         while round(num)%2==0 and c2<n:
             num/=2
@@ -33,10 +40,9 @@ def decimal_to_fraction(x,n=2):
     return [int(num),int(den)]
 
 def colors(N,plotly=False):
-    """This method producesa list of N evenly-spaced color strings used for plotting.
-    The plotly option converts those colors to rgb strings compatible with 
-    plotly plotting methods."""
-    
+    #This method producesa list of N evenly-spaced color strings used for plotting.
+    #The plotly option converts those colors to rgb strings compatible with 
+    #plotly plotting methods.
     N=int(round(N))
     if N<=0:
         return []
@@ -97,10 +103,9 @@ def colors(N,plotly=False):
         return res
 
 def hammersley(N,dim,points=True):
-    """This method produces N psuedo-random Hammersley points of dimension dim.
-    The points option selects how the points are returned: either as a list
-    of points, or as a list of coordinate lists."""
-    
+    #This method produces N psuedo-random Hammersley points of dimension dim.
+    #The points option selects how the points are returned: either as a list
+    #of points, or as a list of coordinate lists.
     primes=[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137]
     B=primes[:dim]
     dim=len(B)
@@ -119,11 +124,11 @@ def hammersley(N,dim,points=True):
     else:
         return [np.array([n/N for n in range(N+1)])]+[np.array([Phi(n,B[i-1]) for n in range(N+1)]) for i in range(1,dim)]
 
-def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=1):
-    """This method approximates the (partial) derivative of function f:R^n->R
-    at point x with respect the the (variableDim)th variable,
-    using a 5-point-stencil whenever possible."""
-
+def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=0):
+    #This method approximates the (partial) derivative of function f:R^n->R
+    #at point x with respect the the (variableDim)th variable,
+    #using a 5-point-stencil whenever possible.
+    
     if ("int" in type(x).__name__) or ("float" in type(x).__name__):
         x2hminus=x-2*h
         xhminus=x-h
@@ -150,13 +155,14 @@ def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=1):
     else:
         print("Error: point x is of an incompatible type %s"%type(x).__name__)
         return None
-
+    
     try:
         fx=f(x,*args,**kwargs)
     except:
+        print(x)
         print("Error: Function is not defined on point x")
         return None
-
+    
     try:
         fx2hminus=f(x2hminus,*args,**kwargs)
         fx2hplus=f(x2hplus,*args,**kwargs)
@@ -183,23 +189,22 @@ def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=1):
                 return None
 
 def integrate(f,start,stop,args=[],kwargs={},mode="gauss",maxlevel=5,errtol=1e-3,adapt=True):
-    """This method approximates the integral of a function f:R->R between the lower bound
-    start and upper bound stop. The integral can be computed using either 
-    the adaptive (G30,K61) Gauss-Kronrod quadrature or the adaptive trapezium method.
-    The maxlevel variable determines how many times the adaptive method can
-    iterate, while the errtol variable provides an additional stopping
-    criterion."""
-    
+    #This method approximates the integral of a function f:R->R between the lower bound
+    #start and upper bound stop. The integral can be computed using either 
+    #the adaptive (G30,K61) Gauss-Kronrod quadrature or the adaptive trapezium method.
+    #The maxlevel variable determines how many times the adaptive method can
+    #iterate, while the errtol variable provides an additional stopping
+    #criterion.
     maxlevel=int(round(maxlevel))
     if (("int" not in type(start).__name__) and ("float" not in type(start).__name__)) or (("int" not in type(stop).__name__) and ("float" not in type(stop).__name__)):
         print("Error: inputted upper bound b or lower bound a are of incompatible type")
         print("Type of lower bound a: %s"%type(start).__name__)
         print("Type of upper bound b: %s"%type(stop).__name__)
         return None
-
+    
     start=min(start,stop)
     stop=max(start,stop)
-
+    
     if start==stop:
         return 0.0
     elif "gauss" in mode.lower() or "kronrod" in mode.lower():
@@ -265,7 +270,7 @@ def integrate(f,start,stop,args=[],kwargs={},mode="gauss",maxlevel=5,errtol=1e-3
             0.01692088918905327,0.014369729507045804,0.011823015253496341,
             0.009273279659517764,0.0066307039159312926,0.003890461127099884,
             0.0013890136986770077]
-
+        
         gauss=lambda start,stop:0.5*(stop-start)*sum([wg[i]*f(0.5*((stop-start)*xg[i]+(stop+start)),*args,**kwargs) for i in range(len(wg))])
         kronrod=lambda start,stop:0.5*(stop-start)*sum([wk[i]*f(0.5*((stop-start)*xk[i]+(stop+start)),*args,**kwargs) for i in range(len(wk))])
         if adapt:
@@ -351,11 +356,10 @@ def integrate(f,start,stop,args=[],kwargs={},mode="gauss",maxlevel=5,errtol=1e-3
         return F
 
 def multiIntegrate(f,start,stop,args=[],kwargs={},N=1e3):
-    """This method approximates the integral of a function f:R^n->R between the lower bound
-    vector start and upper bound B. The integral is computed using the quasi-random
-    Monte Carlo integration, with the MonteCarloPoints variable accounting for
-    the precision of the approximation."""
-    
+    #This method approximates the integral of a function f:R^n->R between the lower bound
+    #vector start and upper bound B. The integral is computed using the quasi-random
+    #Monte Carlo integration, with the MonteCarloPoints variable accounting for
+    #the precision of the approximation.
     if (("list" in type(start).__name__) or ("ndarray" in type(start).__name__)) and (("list" in type(stop).__name__) or ("ndarray" in type(stop).__name__)):
         if len(start)==len(stop):
             dim=len(start)
@@ -376,12 +380,12 @@ def multiIntegrate(f,start,stop,args=[],kwargs={},N=1e3):
         print("Type of lower bound start: %s"%type(start).__name__)
         print("Type of upper bound stop: %s"%type(stop).__name__)
         return None
-
+    
     if ("int" not in type(N).__name__) and ("float" not in type(N).__name__):
         print("Error: N is of incompatible type")
         print("Type of N: %s"%type(N).__name__)
         return None
-
+    
     N=int(round(N))
     npA=np.array(start)
     npB=np.array(stop)
@@ -389,9 +393,8 @@ def multiIntegrate(f,start,stop,args=[],kwargs={},N=1e3):
     return np.prod(npB-npA)*sum([f(npA+Points[i]*(npB-npA),*args,**kwargs) for i in range(N)])/N
 
 def interpolate(sol,t,N):
-    """This method interpolates a set of data (sol,t) into N temporally
-    evenly-spaced data points."""
-    
+    #This method interpolates a set of data (sol,t) into N temporally
+    #evenly-spaced data points.
     dim=len(sol)
     n=len(t)
     if any(len(sol[i])!=n for i in range(dim)):
@@ -400,7 +403,7 @@ def interpolate(sol,t,N):
             print("Length of sol[%i]: %i"%(i,len(sol[i])))
         print("Length of t: %i"%len(t))
         return [], []
-
+    
     tprime=np.linspace(t[0],t[n-1],N)
     solprime=[[sol[i][0]]+[0 for j in range(N-1)] for i in range(dim)]
     index=0
@@ -429,16 +432,15 @@ def interpolate(sol,t,N):
     return solprime,tprime
 
 def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodRange=1e-2,maxlevel=50,speed=1):
-    """This method uses the multidimensional Newton-Raphson method to approximate
-    the zeros of function f between lower bound vector start and upper bound vector
-    stop. The method divides the search space into equally-sized spaces whose
-    dimensions are given in vector delta. The method will search in each subspace,
-    iterating a maximum of maxLevel times and each solution found must reach
-    the errtol given. Solutions too close to each other are filtered out,
-    determined by the neighborhoodRange variable. Finally, the speed variable allows
-    for potentially faster convergence (if speed>1) or more steady convergence
-    (if speed<1)."""
-    
+    #This method uses the multidimensional Newton-Raphson method to approximate
+    #the zeros of function f between lower bound vector start and upper bound vector
+    #stop. The method divides the search space into equally-sized spaces whose
+    #dimensions are given in vector delta. The method will search in each subspace,
+    #iterating a maximum of maxLevel times and each solution found must reach
+    #the errtol given. Solutions too close to each other are filtered out,
+    #determined by the neighborhoodRange variable. Finally, the speed variable allows
+    #for potentially faster convergence (if speed>1) or more steady convergence
+    #(if speed<1)
     from toolbox.matrixtoolbox import jacobian,lu
     try:
         dim=len(start)
@@ -448,14 +450,14 @@ def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodR
         fdim=len(f(start,*args,**kwargs))
     except TypeError:
         fdim=1
-
+        
     if speed<=0:
         speed=1
     N=[max(round((stop[i]-start[i])/delta[i]),1) for i in range(dim)]
     res=[]
     grid=[[start[i]+delta[i]/2+j*(stop[i]-start[i])/N[i] for j in range(N[i])] for i in range(dim)]
     vectarray=[np.array(elem) for elem in product(*grid)]
-
+    
     for v in vectarray:
         vect=v.copy()
         diff=[]
@@ -471,7 +473,7 @@ def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodR
                 if npla.norm(f(vect,*args,**kwargs))>1e-2:
                     count=maxlevel
                 break
-
+        
         skip=False
         for r in res:
             if any([abs(vect[k]-r[k])<neighborhoodRange*np.prod(delta) for k in range(dim)]):
@@ -484,41 +486,97 @@ def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodR
                     res.append(vect)
     return res
 
-def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="linear",plotbool=True,plotaxis=None,colormap=None,color="black",alpha=1.0):
-    """This method approximates the 0D solutions of f(x)=0, using a 
-    marching-line algorithm, which is a 1D form of the marching cube algorithm.
-    The zeros are found between scalar lower bound start and scalar upper bound
-    stop, and divided into subsections of length delta. The method can subdivide
-    even further through variable adapt. The method then bisects each subsection
-    and only focusses on subsections that, as best as the method can tell, do 
-    not contain any solutions. The subsections then form a structure similar to
-    a sparse bitree. The maximum level of subdivisions is determined by variable
-    maxlevel. After subdivision, the zeros are approximated using either linear,
-    quadratic, or cubic interpolation, determined by variable mode. A colormap option
-    is available to when plotting (colormap values are based on the x-coordinate)."""
-    
+def polyRegression(X,Y,dim=1,errtol=1e-6,plotbool=True,plotaxis=None,color="black",alpha=1.0):
+    if dim>len(X):
+        dim=len(X)-1
     plotshowbool=False
     if plotbool and plotaxis is None:
-        graphsize=9
-        font = {"family": "serif",
-            "color": "black",
-            "weight": "bold",
-            "size": "20"}
         plotfig=plt.figure(figsize=(graphsize,graphsize))
         plotaxis=plotfig.add_subplot(111)
-        plotaxis.set_title("Function Point",fontdict=font)
+        plotaxis.set_title("Data Best Fit Line",fontdict=font)
         plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
         plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
         plotaxis.xaxis.set_tick_params(labelsize=16)
         plotaxis.yaxis.set_tick_params(labelsize=16)
         plotshowbool=True
+        
+    duplicates=[]
+    for i in range(len(X)-1):
+        for j in range(i+1,len(X)):
+            if abs(X[i]-X[j])<=abs(errtol):
+                if j not in duplicates:
+                    duplicates.append(j)
+    for ind in duplicates[::-1]:
+        del X[ind]
+        
+    M=np.array([[x**j for j in range(dim+1)] for x in X])
+    coeff=npla.solve(np.dot(M.T,M),np.dot(M.T,Y))
+    
+    if plotbool:
+        plotaxis.scatter(X,Y,color="black",alpha=1.0)
+        minX=min(X)
+        maxX=max(X)
+        Xplot=np.linspace(minX,maxX,100)
+        plotaxis.plot(Xplot,[sum([coeff[j]*x**j for j in range(dim+1)]) for x in Xplot],color=color,alpha=alpha)
+        if plotshowbool:
+            plt.show()
+    return coeff
 
-    paths=[[[]],
-           [[0,1]],
-           [[0,1]],
-           [[]]]
-
-    class line(object):
+def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="linear",plotbool=True,plotaxis=None,colormap=None,color="black",alpha=1.0):
+    #This method approximates the 0D solutions of f(x)=0, using a 
+    #"marching-line" algorithm, which is a 1D form of the marching cube algorithm.
+    #The zeros are found between scalar lower bound start and scalar upper bound
+    #stop, and divided into subsections of length delta. The method can subdivide
+    #even further through variable adapt. The method then bisects each subsection
+    #and only focusses on subsections that, as best as the method can tell, do 
+    #not contain any solutions. The subsections then form a structure similar to
+    #a sparse bitree. The maximum level of subdivisions is determined by variable
+    #maxlevel. After subdivision, the zeros are approximated using either linear,
+    #quadratic, or cubic interpolation, determined by variable mode. A colormap option
+    #is available to when plotting (colormap values are based on the x-coordinate).
+    plotshowbool=False
+    if plotbool:
+        if plotaxis is None:
+            plotfig=plt.figure(figsize=(graphsize,graphsize))
+            plotaxis=plotfig.add_subplot(111)
+            plotaxis.set_title("Function Point",fontdict=font)
+            plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+            plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+            plotaxis.xaxis.set_tick_params(labelsize=16)
+            plotaxis.yaxis.set_tick_params(labelsize=16)
+            plotshowbool=True
+        xlim = plotaxis.get_xlim()
+        ylim = plotaxis.get_ylim()
+        if xlim != (0.0, 1.0):
+            plotaxis.set_xlim([min(xlim[0],start),max(xlim[1],stop)])
+        else:
+            plotaxis.set_xlim([start,stop])
+        if ylim != (0.0, 1.0):
+            plotaxis.set_ylim([min(ylim[0],-1),max(ylim[1],1)])
+        else:
+            plotaxis.set_ylim([-1, 1])
+    
+    mode=mode.lower()
+    
+    if color is not None:
+        try:
+            color = pltcolors.to_rgb(color)
+        except ValueError:
+            color = (0.0, 0.0, 0.0)
+    if colormap is not None:
+        try:
+            pltcolors.to_rgb(colormap(0.0))
+            pltcolors.to_rgb(colormap(0.5))
+            pltcolors.to_rgb(colormap(1.0))
+        except Exception:
+            colormap = None
+    
+    paths={0:[[]],
+           1:[[0,1]],
+           2:[[0,1]],
+           3:[[]]}
+    
+    class line:
         def __init__(self,Sv1,delta,f):
             self.delta=delta
             self.V=[Sv1,Sv1+delta]
@@ -531,31 +589,30 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
             self.full=False
             self.done=False
             self.Px=[]
-
-        def adjust(self,a,fa,b=None):
-            shift=100
-            tempa=a
-            tempfa=fa
-            if math.isinf(fa) or math.isnan(fa):
-                i=1
-                if b is None:
-                    b=0.5*(self.V[0]+self.V[1])
-                tempa=a+(b-a)/shift
-                tempfa=self.f(tempa,*args,**kwargs)
-                abool=math.isinf(tempfa) or math.isnan(fa)
-                while abool and i<shift-1:
-                    i+=1
-                    tempa=a+(b-a)*i/shift
-                    tempfa=self.f(tempa,*args,**kwargs)
-                    abool=math.isinf(tempfa) or math.isnan(fa)
-                if abool:
-                    tempa=a
-                    tempfa=fa
-            return tempa,tempfa
-
+        
+        def adjust(self, a, b=None, terminate=True):
+            shift = 100
+            i = 0
+            if b is None:
+                b = self.c
+            nanbool = True
+            while nanbool and i <= shift:
+                try:
+                    tempa = a + i * (b - a) / shift
+                    tempfa = f(tempa, *args, **kwargs)
+                    nanbool = math.isinf(tempfa) or math.isnan(tempfa)
+                except Exception:
+                    nanbool = True
+                i += 1
+            if nanbool:
+                tempa = a
+                tempfa = 0
+                self.done = terminate
+            return tempa, tempfa
+        
         def intersect(self,a,b,fa,fb,P,mode):
             if mode.lower() in ["quad","quadratic","2","two","second"]:
-                c,fc=self.adjust(self.c,self.f(self.c,*args,**kwargs))
+                c,fc=self.adjust(self.c,b=self.V[0])
                 A=((b-c)*fa+(c-a)*fb+(a-b)*fc)/((a-b)*(a-c)*(b-c))
                 B=((c**2-b**2)*fa+(a**2-c**2)*fb+(b**2-a**2)*fc)/((a-b)*(a-c)*(b-c))
                 C=((b-c)*b*c*fa+(c-a)*c*a*fb+(a-b)*a*b*fc)/((a-b)*(a-c)*(b-c))
@@ -579,26 +636,22 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
                                 rcount+=1
                 if rcount>0:
                     P.append(res/rcount)
-
+                    
             elif mode.lower() in ["cube","cubic","3","three","third"]:
                 h=1e-3*self.delta
                 aplus=a+h
                 aminus=a-h
                 bplus=b+h
                 bminus=b-h
-
-                faplus=self.f(aplus,*args,**kwargs)
-                aplus,faplus=self.adjust(aplus,faplus)
-                faminus=self.f(aminus,*args,**kwargs)
-                aminus,faminus=self.adjust(aminus,faminus)
-                fbplus=self.f(bplus,*args,**kwargs)
-                bplus,fbplus=self.adjust(bplus,fbplus)            
-                fbminus=self.f(bminus,*args,**kwargs)
-                bminus,fbminus=self.adjust(bminus,fbminus)
-
+                
+                aplus,faplus=self.adjust(aplus)
+                aminus,faminus=self.adjust(aminus)
+                bplus,fbplus=self.adjust(bplus)
+                bminus,fbminus=self.adjust(bminus)
+                
                 faprime=(faplus-faminus)/(2*h)
                 fbprime=(fbplus-fbminus)/(2*h)
-
+                    
                 A=(a*faprime+a*fbprime-b*faprime-b*fbprime-2*fa+2*fb)/((a-b)**3)
                 B=(-a**2*faprime-2*a**2*fbprime-a*b*faprime+a*b*fbprime+3*a*fa-3*a*fb+2*b**2*faprime+b**2*fbprime+3*b*fa-3*b*fb)/((a-b)**3)
                 C=(a**3*fbprime+2*a**2*b*faprime+a**2*b*fbprime-a*b**2*faprime-2*a*b**2*fbprime-6*a*b*fa+6*a*b*fb-b**3*faprime)/((a-b)**3)
@@ -626,18 +679,18 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
             else:
                 temp=(a*fb-b*fa)/(fb-fa)
                 P.append(temp)
-
+        
         def calc(self):
             for i in range(2):
-                v,fv=self.adjust(self.V[i],self.f(self.V[i],*args,**kwargs))
+                v,fv=self.adjust(self.V[i])
                 self.F[i]=fv
-            self.c,self.fc=self.adjust(self.c,self.f(self.c,*args,**kwargs),b=self.V[0])
+            self.c,self.fc=self.adjust(self.c,b=self.V[0])
             self.full=True
             for fv in self.F:
                 if abs(fv)>self.zero:
                     self.full=False
                     break
-
+            
             if not self.full:
                 if all([fv<0 for fv in self.F]) or all([fv>0 for fv in self.F]):
                     self.done=True
@@ -646,17 +699,32 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
                             self.done=False
                             break
 
+        def is_straight(self):
+            diff=np.zeros(len(self.V))
+            for i in range(len(self.V)):
+                plus,fplus=self.adjust(self.V[i]+1e-3*self.delta,
+                                       b=self.V[i]+self.delta,terminate=False)
+                minus,fminus=self.adjust(self.V[i]-1e-3*self.delta,
+                                         b=self.V[i]-self.delta,terminate=False)
+                diff[i]=(fplus-fminus)/(plus-minus)
+            if (diff[1]-diff[0])**2<=(0.25)**2:
+                return True
+            elif math.isinf(diff[1]-diff[0]) or math.isnan(diff[1]-diff[0]):
+                return True
+            return False
+        
         def split(self,S):
-            if not self.done and not self.full:
-                splitS=[]
-                for s in [line(0.5*(self.V[0]+self.V[i]),self.delta/2,f) for i in range(2)]:
-                    s.calc()
-                    if not s.done:
-                        splitS.append(s)
-                S+=splitS
-            elif self.full:
-                S+=[self]
-
+            if not self.done:
+                if not self.full and not self.is_straight():
+                    splitS=[]
+                    for s in [line(0.5*(self.V[0]+self.V[i]),self.delta/2,f) for i in range(2)]:
+                        s.calc()
+                        if not s.done:
+                            splitS.append(s)
+                    S+=splitS
+                else:
+                    S+=[self]
+                
         def findpoints(self):
             if not self.done:
                 if not self.full:
@@ -669,26 +737,15 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
                         if len(p)>1:
                             self.intersect(self.V[0],self.V[1],self.F[0],self.F[1],self.Px,mode)
 
-        def draw(self,plotaxis):
-            if not self.done:
-                if self.full:
-                    if colormap is not None:
-                        try:
-                            plotaxis.plot([self.V[0],self.V[1]],[0,0],color=colormap((0.5*(self.V[1]+self.V[0])-start)/(stop-start)),alpha=alpha)
-                        except:
-                            plotaxis.plot([self.V[0],self.V[1]],[0,0],color=color,alpha=alpha)
-                    else:
-                        plotaxis.plot([self.V[0],self.V[1]],[0,0],color=color,alpha=alpha)
-
     if adapt:
         delta=max((stop-start)/10,delta)
     else:
         delta=max((stop-start)/128,delta)        
-
+    
     Lv1=[]
-    for i in range(round((stop-start)/delta)):
+    for i in range(int(round((stop-start)/delta))):
         Lv1.append(start+delta*i)
-
+    
     L=[line(l,delta,f) for l in Lv1]
     for l in L:
         l.calc()
@@ -699,60 +756,53 @@ def pointplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=10,mode="
             for l in L:
                 l.split(newL)
             L=newL.copy()
-
+            
     for l in L:
         l.findpoints()
-
+            
+    Px=[]
+    for l in L:
+        for i in range(len(l.Px)):
+            matchbool=False
+            for j in range(len(Px)):
+                if abs(l.Px[i]-Px[j])<l.zero:
+                    matchbool=True
+                    break
+            if not matchbool:
+                Px.append(l.Px[i])    
+    
     if plotbool:
-        Px=[]
+        segments=[]
+        colors=[]
         for l in L:
-            l.draw(plotaxis)
-            for i in range(len(l.Px)):
-                matchbool=False
-                for j in range(len(Px)):
-                    if abs(l.Px[i]-Px[j])<l.zero:
-                        matchbool=True
-                        break
-                if not matchbool:
-                    Px.append(l.Px[i])
-        if colormap is not None:
-            try:
-                plotaxis.scatter(Px,[0 for px in Px],color=[colormap((px-start)/(stop-start)) for px in Px],alpha=alpha)
-            except:
-                plotaxis.scatter(Px,[0 for px in Px],color=color,alpha=alpha)
-        else:
-            plotaxis.scatter(Px,[0 for px in Px],color=color,alpha=alpha)
-
+            if not l.done and l.full:
+                segments.append(np.column_stack([line.vertices,[0,0]]))
+                if colormap is not None:
+                    colors.append(colormap((0.5*(line.vertices[1]+line.vertices[0])-start)/(stop-start)))
+        if len(segments) > 0:
+            if colormap is not None:
+                plotaxis.add_collection(LineCollection(segments,colors=colors))
+            else:
+                plotaxis.add_collection(LineCollection(segments,colors=color))
+        if len(Px) > 0:
+            if colormap is not None:
+                plotaxis.scatter(Px,[0 for elem in Px],color=[colormap((elem-start)/(stop-start)) for elem in Px],alpha=alpha)
+            else:
+                plotaxis.scatter(Px,[0 for elem in Px],color=color,alpha=alpha)
         if plotshowbool:
             plt.show()
     else:
-        Px=[]
-        for l in L:
-            for i in range(len(l.Px)):
-                matchbool=False
-                for j in range(len(Px)):
-                    if abs(l.Px[i]-Px[j])<l.zero:
-                        matchbool=True
-                        break
-                if not matchbool:
-                    Px.append(l.Px[i])
         return Px
 
 def plot2D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="y",mode="cartesian",plotaxis=None,color="black",alpha=1.0):
-    """This method provides a consistent way to plot any f:R->R function 
-    (cartesian or polar) between scalar lower bound start and scalar upper bound
-    stop, using delta as a step variable. The variable limit provides a 
-    lower and upper limit on the value of f. The variable dependentvar determines
-    which variable is a function of the other. For example, if the dependentvar
-    is y, then y(x)=f(x)."""
-    
+    #This method provides a consistent way to plot any f:R->R function 
+    #(cartesian or polar) between scalar lower bound start and scalar upper bound
+    #stop, using delta as a step variable. The variable limit provides a 
+    #lower and upper limit on the value of f. The variable dependentvar determines
+    #which variable is a function of the other. For example, if the dependentvar
+    #is y, then y(x)=f(x).
     plotshowbool=False
     if plotaxis is None:
-        graphsize=9
-        font = {"family": "serif",
-            "color": "black",
-            "weight": "bold",
-            "size": "20"}
         plotfig=plt.figure(figsize=(graphsize,graphsize))
         if "pol" in mode.lower():
             plotaxis=plotfig.add_subplot(111,projection="polar")
@@ -764,10 +814,10 @@ def plot2D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
         plotaxis.xaxis.set_tick_params(labelsize=16)
         plotaxis.yaxis.set_tick_params(labelsize=16)
         plotshowbool=True
-
+        
     Xgrid=np.linspace(start,stop,round((stop-start)/delta)+1)
     Ygrid=np.zeros(Xgrid.shape)
-
+    
     for i in range(len(Xgrid)):
         try:
             res=f(Xgrid[i],*args,**kwargs)
@@ -788,63 +838,83 @@ def plot2D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
             else:
                 res=0
         Ygrid[i]=res
-
+    
     if "x" in dependentvar.lower():
         plotaxis.plot(Ygrid,Xgrid,color=color,alpha=alpha)
     else:
         plotaxis.plot(Xgrid,Ygrid,color=color,alpha=alpha)
     if plotshowbool:
         plt.show()
-
-def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="linear",plotbool=True,plotaxis=None,wireframe=True,colormap=None,color="black",alpha=1.0):
-    """This method approximates the 1D solutions of f(x,y)=0, using the marching 
-    square algorithm. The zeros are found between lower bound vector start and 
-    upper bound vector stop, and divided into subsections of dimensions delta. 
-    The method can subdivide even further through variable adapt. The method 
-    then evenly bisects each subsection through each dimension and only focusses
-    on subsections that, as best as the method can tell, do not contain any 
-    solutions. The subsections then form a structure similar to a sparse 
-    quadtree. The maximum level of subdivisions is determined by variable
-    maxlevel. After subdivision, the zeros are approximated using either linear,
-    quadratic, or cubic interpolation, determined by variable mode. If plotted,
-    solutions are plotted either using a 2D wireframe (mostly just consisting
-    of straight lines) or by just plotting the point-cloud. A colormap option
-    is available to when plotting (colormap values are based on the y-coordinate)."""
-    
+                
+def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="linear",plotbool=True,plotaxis=None,scatterplot=False,colormap=None,color="black",alpha=1.0):
+    #This method approximates the 1D solutions of f(x,y)=0, using the marching 
+    #square algorithm. The zeros are found between lower bound vector start and 
+    #upper bound vector stop, and divided into subsections of dimensions delta. 
+    #The method can subdivide even further through variable adapt. The method 
+    #then evenly bisects each subsection through each dimension and only focusses
+    #on subsections that, as best as the method can tell, do not contain any 
+    #solutions. The subsections then form a structure similar to a sparse 
+    #quadtree. The maximum level of subdivisions is determined by variable
+    #maxlevel. After subdivision, the zeros are approximated using either linear,
+    #quadratic, or cubic interpolation, determined by variable mode. If plotted,
+    #solutions are plotted either using a 2D wireframe (mostly just consisting
+    #of straight lines) or by just plotting the point-cloud. A colormap option
+    #is available to when plotting (colormap values are based on the y-coordinate).
     plotshowbool=False
-    if plotbool and plotaxis is None:
-        graphsize=9
-        font = {"family": "serif",
-            "color": "black",
-            "weight": "bold",
-            "size": "20"}
-        plotfig=plt.figure(figsize=(graphsize,graphsize))
-        plotaxis=plotfig.add_subplot(111)
-        plotaxis.set_title("Function Line",fontdict=font)
-        plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
-        plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
-        plotaxis.xaxis.set_tick_params(labelsize=16)
-        plotaxis.yaxis.set_tick_params(labelsize=16)
-        plotshowbool=True
+    if plotbool:
+        if plotaxis is None:
+            plotfig=plt.figure(figsize=(graphsize,graphsize))
+            plotaxis=plotfig.add_subplot(111)
+            plotaxis.set_title("Function Line",fontdict=font)
+            plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+            plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+            plotaxis.xaxis.set_tick_params(labelsize=16)
+            plotaxis.yaxis.set_tick_params(labelsize=16)
+            plotshowbool=True
+        xlim = plotaxis.get_xlim()
+        ylim = plotaxis.get_ylim()
+        if xlim != (0.0, 1.0):
+            plotaxis.set_xlim([min(xlim[0], start[0]), max(xlim[1], stop[0])])
+        else:
+            plotaxis.set_xlim([start[0], stop[0]])
+        if ylim != (0.0, 1.0):
+            plotaxis.set_ylim([min(ylim[0], start[1]), max(ylim[1], stop[1])])
+        else:
+            plotaxis.set_ylim([start[1], stop[1]])
+            
+    mode = mode.lower()
 
-    paths=[[[]],
-           [[2, 3]],
-           [[1, 2]],
-           [[1, 3]],
-           [[0, 1]],
-           [[0, 1], [2, 3]],
-           [[0, 2]],
-           [[0, 3]],
-           [[0, 3]],
-           [[0, 2]],
-           [[0, 3], [1, 2]],
-           [[0, 1]],
-           [[1, 3]],
-           [[1, 2]],
-           [[2, 3]],
-           [[]]]
-
-    class square(object):
+    if color is not None:
+        try:
+            color = pltcolors.to_rgb(color)
+        except ValueError:
+            color = (0.0, 0.0, 0.0)
+    if colormap is not None:
+        try:
+            pltcolors.to_rgb(colormap(0.0))
+            pltcolors.to_rgb(colormap(0.5))
+            pltcolors.to_rgb(colormap(1.0))
+        except Exception:
+            colormap = None
+        
+    paths={0:[[]],
+           1:[[2, 3]],
+           2:[[1, 2]],
+           3:[[1, 3]],
+           4:[[0, 1]],
+           5:[[0, 1], [2, 3]],
+           6:[[0, 2]],
+           7:[[0, 3]],
+           8:[[0, 3]],
+           9:[[0, 2]],
+           10:[[0, 3], [1, 2]],
+           11:[[0, 1]],
+           12:[[1, 3]],
+           13:[[1, 2]],
+           14:[[2, 3]],
+           15:[[]]}
+    
+    class square:
         def __init__(self,Sv1,deltax,deltay,f):
             if not isinstance(Sv1,np.ndarray):
                 Sv1=np.array(Sv1)
@@ -854,7 +924,7 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
             self.c=0.5*(self.V[0]+self.V[2])
             self.errx=1e-3*(self.V[2][0]-self.V[0][0])
             self.erry=1e-3*(self.V[2][1]-self.V[0][1])
-            self.zero=0.0#1e-6*self.deltax*self.deltay
+            self.zero=1e-12#1e-6*self.deltax*self.deltay
             self.f=f
             self.F=[0 for i in range(4)]
             self.fc=0
@@ -862,38 +932,36 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
             self.Py=[]
             self.full=False
             self.done=False
-
-        def adjust(self,a,fa,b=None):
-            shift=100
-            tempa=a
-            tempfa=fa
-            if math.isinf(fa) or math.isnan(fa):
-                i=1
-                if b is None:
-                    b=0.5*(self.V[0]+self.V[2])
-                tempa=a+(b-a)/shift
-                tempfa=self.f(tempa,*args,**kwargs)
-                abool=math.isinf(tempfa) or math.isnan(fa)
-                while abool and i<shift-1:
-                    i+=1
-                    tempa=a+(b-a)*i/shift
-                    tempfa=self.f(tempa,*args,**kwargs)
-                    abool=math.isinf(tempfa) or math.isnan(fa)
-                if abool:
-                    tempa=a
-                    tempfa=fa
-            return tempa,tempfa
-
+            
+        def adjust(self, a, b=None, terminate=True):
+            shift = 100
+            i = 0
+            if b is None:
+                b = self.c
+            nanbool = True
+            while nanbool and i <= shift:
+                try:
+                    tempa = a + i * (b - a) / shift
+                    tempfa = self.f(tempa, *args, **kwargs)
+                    nanbool = math.isinf(tempfa) or math.isnan(tempfa)
+                except Exception:
+                    nanbool = True
+                i += 1
+            if nanbool:
+                tempa = a.copy()
+                tempfa = 0
+                self.done = terminate
+            return tempa, tempfa
+        
         def intersect(self,a,b,fa,fb,Px,Py,mode="linear"):
-            if mode.lower() in ["quad","quadratic","2","two","second"]:
+            if mode in ["quad","quadratic","2","two","second"]:
                 if abs(a[0]-b[0])<=self.errx:
                     c=np.array([a[0],0.5*(a[1]+b[1])])
                     pivot=1
                 else:
                     c=np.array([0.5*(a[0]+b[0]),a[1]])
                     pivot=0
-                fc=self.f(c,*args,**kwargs)
-                c,fc=self.adjust(c,fc)
+                c,fc=self.adjust(c,b=self.V[0])
                 A=((b[pivot]-c[pivot])*fa+(c[pivot]-a[pivot])*fb+(a[pivot]-b[pivot])*fc)/((a[pivot]-b[pivot])*(a[pivot]-c[pivot])*(b[pivot]-c[pivot]))
                 B=((c[pivot]**2-b[pivot]**2)*fa+(a[pivot]**2-c[pivot]**2)*fb+(b[pivot]**2-a[pivot]**2)*fc)/((a[pivot]-b[pivot])*(a[pivot]-c[pivot])*(b[pivot]-c[pivot]))
                 C=((b[pivot]-c[pivot])*b[pivot]*c[pivot]*fa+(c[pivot]-a[pivot])*c[pivot]*a[pivot]*fb+(a[pivot]-b[pivot])*a[pivot]*b[pivot]*fc)/((a[pivot]-b[pivot])*(a[pivot]-c[pivot])*(b[pivot]-c[pivot]))
@@ -928,7 +996,7 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                     else:
                         Px.append(a[0])
                         Py.append(res/rcount)
-            elif mode.lower() in ["cube","cubic","3","three","third"]:
+            elif mode in ["cube","cubic","3","three","third"]:
                 if abs(a[0]-b[0])<=self.errx:
                     h=1e-3*self.deltay
                     aplus=a+np.array([0,h])
@@ -943,19 +1011,15 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                     bplus=b+np.array([h,0])
                     bminus=b-np.array([h,0])
                     pivot=0
-
-                faplus=self.f(aplus,*args,**kwargs)
-                aplus,faplus=self.adjust(aplus,faplus)
-                faminus=self.f(aminus,*args,**kwargs)
-                aminus,faminus=self.adjust(aminus,faminus)
-                fbplus=self.f(bplus,*args,**kwargs)
-                bplus,fbplus=self.adjust(bplus,fbplus)            
-                fbminus=self.f(bminus,*args,**kwargs)
-                bminus,fbminus=self.adjust(bminus,fbminus)
-
+                
+                aplus,faplus=self.adjust(aplus)
+                aminus,faminus=self.adjust(aminus)
+                bplus,fbplus=self.adjust(bplus)
+                bminus,fbminus=self.adjust(bminus)
+                
                 faprime=(faplus-faminus)/(2*h)
                 fbprime=(fbplus-fbminus)/(2*h)
-
+                    
                 A=(a[pivot]*faprime+a[pivot]*fbprime-b[pivot]*faprime-b[pivot]*fbprime-2*fa+2*fb)/((a[pivot]-b[pivot])**3)
                 B=(-a[pivot]**2*faprime-2*a[pivot]**2*fbprime-a[pivot]*b[pivot]*faprime+a[pivot]*b[pivot]*fbprime+3*a[pivot]*fa-3*a[pivot]*fb+2*b[pivot]**2*faprime+b[pivot]**2*fbprime+3*b[pivot]*fa-3*b[pivot]*fb)/((a[pivot]-b[pivot])**3)
                 C=(a[pivot]**3*fbprime+2*a[pivot]**2*b[pivot]*faprime+a[pivot]**2*b[pivot]*fbprime-a[pivot]*b[pivot]**2*faprime-2*a[pivot]*b[pivot]**2*fbprime-6*a[pivot]*b[pivot]*fa+6*a[pivot]*b[pivot]*fb-b[pivot]**3*faprime)/((a[pivot]-b[pivot])**3)
@@ -995,18 +1059,18 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                 temp=(a*fb-b*fa)/(fb-fa)
                 Px.append(temp[0])
                 Py.append(temp[1])
-
+        
         def calc(self):
             for i in range(4):
-                v,fv=self.adjust(self.V[i],self.f(self.V[i],*args,**kwargs))
+                v,fv=self.adjust(self.V[i])
                 self.F[i]=fv
-            self.c,self.fc=self.adjust(self.c,self.f(self.c,*args,**kwargs),b=self.V[0])
+            self.c,self.fc=self.adjust(self.c,b=self.V[0])
             self.full=True
             for fv in self.F:
                 if abs(fv)>self.zero:
                     self.full=False
                     break
-
+            
             if not self.full:
                 if all([fv<0 for fv in self.F]) or all([fv>0 for fv in self.F]):
                     self.done=True
@@ -1015,22 +1079,47 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                             mid=0.5*(self.V[i]+self.V[i+1])
                         else:
                             mid=0.5*(self.V[0]+self.V[3])
-                        mid,fm=self.adjust(mid,self.f(mid,*args,**kwargs))
+                        mid,fm=self.adjust(mid,terminate=False)
                         if fm*self.fc<0:
                             self.done=False
                             break        
-
+                
+        def is_straight(self):
+            diffx=np.zeros(len(self.V))
+            diffy=np.zeros(len(self.V))
+            for i in range(len(self.V)):
+                plus,fplus=self.adjust(self.V[i]+np.array([1e-3*self.deltax,0]),
+                                       b=self.V[i]+np.array([self.deltax,0]),terminate=False)
+                minus,fminus=self.adjust(self.V[i]-np.array([1e-3*self.deltax,0]),
+                                         b=self.V[i]-np.array([self.deltax,0]),terminate=False)
+                diffx[i]=(fplus-fminus)/(plus[0]-minus[0])
+                
+                plus,fplus=self.adjust(self.V[i]+np.array([0,1e-3*self.deltay]),
+                                       b=self.V[i]+np.array([0,self.deltay]),terminate=False)
+                minus,fminus=self.adjust(self.V[i]-np.array([0,1e-3*self.deltay]),
+                                         b=self.V[i]-np.array([0,self.deltay]),terminate=False)
+                diffy[i]=(fplus-fminus)/(plus[1]-minus[1])
+                
+            if all([(diffx[i]-diffx[0])**2+(diffy[i]-diffy[0])**2<=2*(0.25)**2 for i in range(1,len(self.V))]):
+                return True
+            elif any([math.isinf(diffx[i] - diffx[0]) or math.isinf(diffy[i] - diffy[0]) or 
+                      math.isnan(diffx[i] - diffx[0]) or math.isnan(diffy[i] - diffy[0])
+                      for i in range(1,len(self.V))]):
+                return True
+            return False
+                
         def split(self,S):
-            if not self.done and not self.full:
-                splitS=[]
-                for s in [square(0.5*(self.V[0]+self.V[i]),self.deltax/2,self.deltay/2,f) for i in range(4)]:
-                    s.calc()
-                    if not s.done:
-                        splitS.append(s)
-                S+=splitS
-            elif self.full:
-                S+=[self]
-
+            if not self.done:
+                if not self.full and not self.is_straight():
+                    splitS=[]
+                    for s in [square(0.5*(self.V[0]+self.V[i]),self.deltax/2,self.deltay/2,f) for i in range(4)]:
+                        s.calc()
+                        if not s.done:
+                            splitS.append(s)
+                    S+=splitS
+                else:
+                    S+=[self]
+        
         def findpoints(self):
             if not self.done and not self.full:
                 index=0
@@ -1039,10 +1128,10 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                         index+=2**(3-i)
                 if index==5:
                     if self.fc<=self.zero:
-                        index==10
+                        index=10
                 elif index==10:
                     if self.fc<=self.zero:
-                        index==5
+                        index=5
                 path=paths[index]
                 for p in path:
                     if len(p)>1:
@@ -1050,38 +1139,31 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                             if 0<=e<=2:
                                 self.intersect(self.V[e],self.V[e+1],self.F[e],self.F[e+1],self.Px,self.Py,mode=mode)
                             else:
-                                self.intersect(self.V[3],self.V[0],self.F[3],self.F[0],self.Px,self.Py,mode=mode)                
-
-        def draw(self,plotaxis):
+                                self.intersect(self.V[3],self.V[0],self.F[3],self.F[0],self.Px,self.Py,mode=mode)
+        
+        def draw(self,segments,colors):
             if not self.done:
                 if self.full:
+                    segments.append(np.column_stack([[self.V[i][0] for i in range(4)]+[self.V[0][0]],
+                                                     [self.V[i][1] for i in range(4)]+[self.V[0][1]]]))
                     if colormap is not None:
-                        try:
-                            plotaxis.plot([self.V[i][0] for i in range(4)]+[self.V[0][0]],[self.V[i][1] for i in range(4)]+[self.V[0][1]],color=colormap((0.5*(self.V[0][1]+self.V[2][1])-start[1])/(stop[1]-start[1])),alpha=alpha)
-                        except:
-                            plotaxis.plot([self.V[i][0] for i in range(4)]+[self.V[0][0]],[self.V[i][1] for i in range(4)]+[self.V[0][1]],color=color,alpha=alpha)
-                    else:
-                        plotaxis.plot([self.V[i][0] for i in range(4)]+[self.V[0][0]],[self.V[i][1] for i in range(4)]+[self.V[0][1]],color=color,alpha=alpha)
+                        colors.append(colormap((0.5*(self.vertices[0][1]+self.vertices[2][1])-start[1])/(stop[1]-start[1])))
                 else:
-                    if len(self.Px)>0 and len(self.Px)==len(self.Py):
+                    if len(self.Px)>0:
+                        segments.append(np.column_stack([self.Px, self.Py]))
                         if colormap is not None:
-                            try:
-                                plotaxis.plot(self.Px,self.Py,color=colormap((sum(self.Py)/len(self.Py)-start[1])/(stop[1]-start[1])),alpha=alpha)
-                            except:
-                                plotaxis.plot(self.Px,self.Py,color=color,alpha=alpha)
-                        else:
-                            plotaxis.plot(self.Px,self.Py,color=color,alpha=alpha)
-
+                            colors.append(colormap((sum(self.Py)/len(self.Py)-start[1])/(stop[1]-start[1])))
+                        
     if adapt:
         delta=[max((stop[i]-start[i])/10,delta[i]) for i in range(2)]
     else:
         delta=[max((stop[i]-start[i])/128,delta[i]) for i in range(2)]        
-
+    
     Sv1=[]
     for i in range(round((stop[0]-start[0])/delta[0])):
         for j in range(round((stop[1]-start[1])/delta[1])):
             Sv1.append(np.array([start[0]+delta[0]*i,start[1]+delta[1]*j]))
-
+    
     S=[square(s,delta[0],delta[1],f) for s in Sv1]
     for s in S:
         s.calc()
@@ -1092,14 +1174,20 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
             for s in S:
                 s.split(newS)
             S=[s for s in newS]
-
+    
     for s in S:
         s.findpoints()
-
+        
     if plotbool:
-        if wireframe:
+        if not scatterplot:
+            segments = []
+            colors = []
             for s in S:
-                s.draw(plotaxis)
+                s.draw(segments, colors)
+            if colormap is not None:
+                plotaxis.add_collection(art3d.LineCollection(segments,colors=colors))
+            else:
+                plotaxis.add_collection(art3d.LineCollection(segments,colors=color))
         else:
             Px,Py=[],[]
             for s in S:
@@ -1134,26 +1222,20 @@ def lineplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=5,mode="li
                     Px.append(s.Px[i])
                     Py.append(s.Py[i])
         return Px,Py
-
+        
 def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="z",plotaxis=None,wireframe=False,colormap=None,color="black",alpha=1.0):
-    """This method provides a consistent way to plot any f:R^2->R function 
-    between lower bound vector start and upper bound vector stop, using delta 
-    as a step vector. The variable limit provides a lower and upper limit on 
-    the value of f. The method either returns the entire surface of the graph 
-    when the variable wireframe is False, or returns just the wireframe when 
-    the variable wireframe is True. The variable dependentvar determines which
-    variable is a function of the other. For example, if the dependentvar is y,
-    then y(x,z)=f(x,z). A colormap option is available to when plotting 
-    (colormap values are based on the dependentvar-coordinate), but only when 
-    the varaiable wireframe is False."""
-    
+    #This method provides a consistent way to plot any f:R^2->R function 
+    #between lower bound vector start and upper bound vector stop, using delta 
+    #as a step vector. The variable limit provides a lower and upper limit on 
+    #the value of f. The method either returns the entire surface of the graph 
+    #when the variable wireframe is False, or returns just the wireframe when 
+    #the variable wireframe is True. The variable dependentvar determines which
+    #variable is a function of the other. For example, if the dependentvar is y,
+    #then y(x,z)=f(x,z). A colormap option is available to when plotting 
+    #(colormap values are based on the dependentvar-coordinate), but only when 
+    #the varaiable wireframe is False.
     plotshowbool=False
     if plotaxis is None:
-        graphsize=9
-        font = {"family": "serif",
-            "color": "black",
-            "weight": "bold",
-            "size": "20"}
         plotaxis=Axes3D(plt.figure(figsize=(graphsize,graphsize)))
         plotaxis.set_title("Function Surface",fontdict=font)
         plotaxis.xaxis.set_rotate_label(False)
@@ -1166,12 +1248,12 @@ def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
         plotaxis.yaxis.set_tick_params(labelsize=16)
         plotaxis.zaxis.set_tick_params(labelsize=16)
         plotshowbool=True
-
+    
     x=np.linspace(start[0],stop[0],round((stop[0]-start[0])/delta[0])+1)
     y=np.linspace(start[1],stop[1],round((stop[1]-start[1])/delta[1])+1)
     Xgrid,Ygrid=np.meshgrid(x,y)
     Zgrid=np.zeros(Xgrid.shape)
-
+    
     if isinstance(limit[0],int) or isinstance(limit[0],float):
         lowerlimitbool=True
     else:
@@ -1180,7 +1262,7 @@ def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
         upperlimitbool=True
     else:
         upperlimitbool=False
-
+    
     for i in range(len(y)):
         for j in range(len(x)):
             try:
@@ -1216,7 +1298,7 @@ def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
             if upperlimitbool and res>limit[1]:
                 res=limit[1]
             Zgrid[i][j]=res
-
+            
     if wireframe:
         if "x" in dependentvar.lower():
             plotaxis.plot_wireframe(Zgrid,Xgrid,Ygrid,color=color,alpha=alpha)
@@ -1242,30 +1324,24 @@ def plot3D(f,start,stop,delta,args=[],kwargs={},limit=[None,None],dependentvar="
     if plotshowbool:
         plt.show()
 
-def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode="linear",plotbool=True,plotaxis=None,wireframe=True,surface=False,colormap=None,color="black",alpha=1.0):
-    """This method approximates the 2D solutions of f(x,y,z)=0, using the marching 
-    cube algorithm. The zeros are found between lower bound vector start and 
-    upper bound vector stop, and divided into subsections of dimensions delta. 
-    The method can subdivide even further through variable adapt. The method 
-    then evenly bisects each subsection through each dimension and only focusses
-    on subsections that, as best as the method can tell, do not contain any 
-    solutions. The subsections then form a structure similar to a sparse 
-    octree. The maximum level of subdivisions is determined by variable
-    maxlevel. After subdivision, the zeros are approximated using either linear,
-    quadratic, or cubic interpolation, determined by variable mode. If plotted,
-    solutions are plotted either using a wireframe (when variable wireframe is
-    True), a polygonal surface reconstruction (when the variable surface is True),
-    or by just plotting the point-cloud (when both wireframe and surface are 
-    False). A colormap option is available to when plotting (colormap values 
-    are based on the z-coordinate)."""
-    
+def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode="linear",plotbool=True,plotaxis=None,scatterplot=False,colormap=None,color="black",alpha=1.0):
+    #This method approximates the 2D solutions of f(x,y,z)=0, using the marching 
+    #cube algorithm. The zeros are found between lower bound vector start and 
+    #upper bound vector stop, and divided into subsections of dimensions delta. 
+    #The method can subdivide even further through variable adapt. The method 
+    #then evenly bisects each subsection through each dimension and only focusses
+    #on subsections that, as best as the method can tell, do not contain any 
+    #solutions. The subsections then form a structure similar to a sparse 
+    #octree. The maximum level of subdivisions is determined by variable
+    #maxlevel. After subdivision, the zeros are approximated using either linear,
+    #quadratic, or cubic interpolation, determined by variable mode. If plotted,
+    #solutions are plotted either using a wireframe (when variable wireframe is
+    #True), a polygonal surface reconstruction (when the variable surface is True),
+    #or by just plotting the point-cloud (when both wireframe and surface are 
+    #False). A colormap option is available to when plotting (colormap values 
+    #are based on the z-coordinate).
     plotshowbool=False
     if plotbool and plotaxis is None:
-        graphsize=9
-        font = {"family": "serif",
-            "color": "black",
-            "weight": "bold",
-            "size": "20"}
         plotfig=plt.figure(figsize=(graphsize,graphsize))
         plotaxis=Axes3D(plotfig)
         plotaxis.set_title("Function Surface",fontdict=font)
@@ -1279,7 +1355,7 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
         plotaxis.yaxis.set_tick_params(labelsize=16)
         plotaxis.zaxis.set_tick_params(labelsize=16)
         plotshowbool=True
-
+    
     xlim=plotaxis.get_xlim()
     ylim=plotaxis.get_ylim()
     zlim=plotaxis.get_zlim()
@@ -1295,269 +1371,284 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
         plotaxis.set_zlim([min(zlim[0],start[2]),max(zlim[1],stop[2])])
     else:
         plotaxis.set_zlim([start[2],stop[2]])
-
+        
     phi=plotaxis.azim*math.pi/180
     theta=(90-plotaxis.elev)*math.pi/180
     viewWeights=[math.sin(theta)*math.cos(phi),math.sin(theta)*math.sin(phi),math.cos(theta)]
-
-    paths=[[[]],
-            [[6,7,11,6]],
-            [[5,6,10,5]],
-            [[5,7,11,10,5]],
-            [[4,5,9,4]],
-            [[4,5,9,4],[6,7,11,6]],
-            [[4,6,10,9,4]],
-            [[4,7,11,10,9,4]],
-            [[4,7,8,4]],
-            [[4,6,11,8,4]],
-            [[4,7,8,4],[5,6,10,5]],
-            [[4,5,10,11,8,4]],
-            [[5,7,8,9,5]],
-            [[5,6,11,8,9,5]],
-            [[6,7,8,9,10,6]],
-            [[8,9,10,11,8]],
-            [[2,3,11,2]],
-            [[2,3,7,6,2]],
-            [[2,3,11,2],[5,6,10,5]],
-            [[2,3,7,5,10,2]],
-            [[2,3,11,2],[4,5,9,4]],
-            [[2,3,7,6,2],[4,5,9,4]],
-            [[2,3,11,2],[4,6,10,9,4]],
-            [[2,3,7,4,9,10,2]],
-            [[2,3,11,2],[4,7,8,4]],
-            [[2,3,8,4,6,2]],
-            [[2,3,11,2],[4,7,8,4],[5,6,10,5]],
-            [[2,3,8,4,5,10,2]],
-            [[2,3,11,2],[5,7,8,9,5]],
-            [[2,3,8,9,5,6,2]],
-            [[2,3,11,2],[6,7,8,9,10,6]],
-            [[2,3,8,9,10,2]],
-            [[1,2,10,1]],
-            [[1,2,10,1],[6,7,11,6]],
-            [[1,2,6,5,1]],
-            [[1,2,11,7,5,1]],
-            [[1,2,10,1],[4,5,9,4]],
-            [[1,2,10,1],[4,5,9,4],[6,7,11,6]],
-            [[1,2,6,4,9,1]],
-            [[1,2,11,7,4,9,1]],
-            [[1,2,10,1],[4,7,8,4]],
-            [[1,2,10,1],[4,6,11,8,4]],
-            [[1,2,6,5,1],[4,7,8,4]],
-            [[1,2,11,8,4,5,1]],
-            [[1,2,10,1],[5,7,8,9,5]],
-            [[1,2,10,1],[5,6,11,8,9,5]],
-            [[1,2,6,7,8,9,1]],
-            [[1,2,11,8,9,1]],
-            [[1,3,11,10,1]],
-            [[1,3,7,6,10,1]],
-            [[1,3,11,6,5,1]],
-            [[1,3,7,5,1]],
-            [[1,3,11,10,1],[4,5,9,4]],
-            [[1,3,7,6,10,1],[4,5,9,4]],
-            [[1,3,11,6,4,9,1]],
-            [[1,3,7,4,9,1]],
-            [[1,3,11,10,1],[4,7,8,4]],
-            [[1,3,8,4,6,10,1]],
-            [[1,3,11,6,5,1],[4,7,8,4]],
-            [[1,3,8,4,5,1]],
-            [[1,3,11,10,1],[5,7,8,9,5]],
-            [[1,3,8,9,1],[5,6,10,5]],
-            [[1,3,8,9,1],[6,7,11,6]],
-            [[1,3,8,9,1]],
-            [[0,1,9,0]],
-            [[0,1,9,0],[6,7,11,6]],
-            [[0,1,9,0],[5,6,10,5]],
-            [[0,1,9,0],[5,7,11,10,5]],
-            [[0,1,5,4,0]],
-            [[0,1,5,4,0],[6,7,11,6]],
-            [[0,1,10,6,4,0]],
-            [[0,1,10,11,7,4,0]],
-            [[0,1,9,0],[4,7,8,4]],
-            [[0,1,9,0],[4,6,11,8,4]],
-            [[0,1,9,0],[4,7,8,4],[5,6,10,5]],
-            [[0,1,9,0],[4,5,10,11,8,4]],
-            [[0,1,5,7,8,0]],
-            [[0,1,5,6,11,8,0]],
-            [[0,1,10,6,7,8,0]],
-            [[0,1,10,11,8,0]],
-            [[0,1,9,0],[2,3,11,2]],
-            [[0,1,9,0],[2,3,7,6,2]],
-            [[0,1,9,0],[2,3,11,2],[5,6,10,5]],
-            [[0,1,9,0],[2,3,7,5,10,2]],
-            [[0,1,5,4,0],[2,3,11,2]],
-            [[0,1,5,4,0],[2,3,7,6,2]],
-            [[0,1,10,6,4,0],[2,3,11,2]],
-            [[0,3,7,4,0],[1,2,10,1]],
-            [[0,1,9,0],[2,3,11,2],[4,7,8,4]],
-            [[0,1,9,0],[2,3,8,4,6,2]],
-            [[0,1,9,0],[2,3,11,2],[4,7,8,4],[5,6,10,5]],
-            [[0,1,9,0],[2,3,8,4,5,10,2]],
-            [[0,1,5,7,8,0],[2,3,11,2]],
-            [[0,3,8,0],[1,2,6,5,1]],
-            [[0,3,8,0],[1,2,10,1],[6,7,11,6]],
-            [[0,3,8,0],[1,2,10,1]],
-            [[0,2,10,9,0]],
-            [[0,2,10,9,0],[6,7,11,6]],
-            [[0,2,6,5,9,0]],
-            [[0,2,11,7,5,9,0]],
-            [[0,2,10,5,4,0]],
-            [[0,2,11,7,4,0],[5,6,10,5]],
-            [[0,2,6,4,0]],
-            [[0,2,11,7,4,0]],
-            [[0,2,10,9,0],[4,7,8,4]],
-            [[0,2,10,9,0],[4,6,11,8,4]],
-            [[0,2,6,5,9,0],[4,7,8,4]],
-            [[0,2,11,8,0],[4,5,9,4]],
-            [[0,2,10,5,7,8,0]],
-            [[0,2,11,8,0],[5,6,10,5]],
-            [[0,2,6,7,8,0]],
-            [[0,2,11,8,0]],
-            [[0,3,11,10,9,0]],
-            [[0,3,7,6,10,9,0]],
-            [[0,3,11,6,5,9,0]],
-            [[0,3,7,5,9,0]],
-            [[0,3,11,10,5,4,0]],
-            [[0,3,7,4,0],[5,6,10,5]],
-            [[0,3,11,6,4,0]],
-            [[0,3,7,4,0]],
-            [[0,3,11,10,9,0],[4,7,8,4]],
-            [[0,3,8,0],[4,6,10,9,4]],
-            [[0,3,8,0],[4,5,9,4],[6,7,11,6]],
-            [[0,3,8,0],[4,5,9,4]],
-            [[0,3,8,0],[5,7,11,10,5]],
-            [[0,3,8,0],[5,6,10,5]],
-            [[0,3,8,0],[6,7,11,6]],
-            [[0,3,8,0]],
-            [[0,3,8,0]],
-            [[0,3,8,0],[6,7,11,6]],
-            [[0,3,8,0],[5,6,10,5]],
-            [[0,3,8,0],[5,7,11,10,5]],
-            [[0,3,8,0],[4,5,9,4]],
-            [[0,3,8,0],[4,5,9,4],[6,7,11,6]],
-            [[0,3,8,0],[4,6,10,9,4]],
-            [[0,3,8,0],[4,7,11,10,9,4]],
-            [[0,3,7,4,0]],
-            [[0,3,11,6,4,0]],
-            [[0,3,7,4,0],[5,6,10,5]],
-            [[0,3,11,10,5,4,0]],
-            [[0,3,7,5,9,0]],
-            [[0,3,11,6,5,9,0]],
-            [[0,3,7,6,10,9,0]],
-            [[0,3,11,10,9,0]],
-            [[0,2,11,8,0]],
-            [[0,2,6,7,8,0]],
-            [[0,2,11,8,0],[5,6,10,5]],
-            [[0,2,10,5,7,8,0]],
-            [[0,2,11,8,0],[4,5,9,4]],
-            [[0,2,6,7,8,0],[4,5,9,4]],
-            [[0,2,11,8,0],[4,6,10,9,4]],
-            [[0,2,10,9,0],[4,7,8,4]],
-            [[0,2,11,7,4,0]],
-            [[0,2,6,4,0]],
-            [[0,2,11,7,4,0],[5,6,10,5]],
-            [[0,2,10,5,4,0]],
-            [[0,2,11,7,5,9,0]],
-            [[0,2,6,5,9,0]],
-            [[0,2,10,9,0],[6,7,11,6]],
-            [[0,2,10,9,0]],
-            [[0,3,8,0],[1,2,10,1]],
-            [[0,3,8,0],[1,2,10,1],[6,7,11,6]],
-            [[0,3,8,0],[1,2,6,5,1]],
-            [[0,3,8,0],[1,2,11,7,5,1]],
-            [[0,3,8,0],[1,2,10,1],[4,5,9,4]],
-            [[0,3,8,0],[1,2,10,1],[4,5,9,4],[6,7,11,6]],
-            [[0,3,8,0],[1,2,6,4,9,1]],
-            [[0,3,8,0],[1,2,11,7,4,9,1]],
-            [[0,3,7,4,0],[1,2,10,1]],
-            [[0,3,11,6,4,0],[1,2,10,1]],
-            [[0,3,7,4,0],[1,2,6,5,1]],
-            [[0,1,5,4,0],[2,3,11,2]],
-            [[0,1,9,0],[2,3,7,5,10,2]],
-            [[0,1,9,0],[2,3,11,2],[5,6,10,5]],
-            [[0,1,9,0],[2,3,7,6,2]],
-            [[0,1,9,0],[2,3,11,2]],
-            [[0,1,10,11,8,0]],
-            [[0,1,10,6,7,8,0]],
-            [[0,1,5,6,11,8,0]],
-            [[0,1,5,7,8,0]],
-            [[0,1,9,0],[4,5,10,11,8,4]],
-            [[0,1,9,0],[4,7,8,4],[5,6,10,5]],
-            [[0,1,9,0],[4,6,11,8,4]],
-            [[0,1,9,0],[4,7,8,4]],
-            [[0,1,10,11,7,4,0]],
-            [[0,1,10,6,4,0]],
-            [[0,1,5,4,0],[6,7,11,6]],
-            [[0,1,5,4,0]],
-            [[0,1,9,0],[5,7,11,10,5]],
-            [[0,1,9,0],[5,6,10,5]],
-            [[0,1,9,0],[6,7,11,6]],
-            [[0,1,9,0]],
-            [[1,3,8,9,1]],
-            [[1,3,8,9,1],[6,7,11,6]],
-            [[1,3,8,9,1],[5,6,10,5]],
-            [[1,3,8,9,1],[5,7,11,10,5]],
-            [[1,3,8,4,5,1]],
-            [[1,3,8,4,5,1],[6,7,11,6]],
-            [[1,3,8,4,6,10,1]],
-            [[1,3,11,10,1],[4,7,8,4]],
-            [[1,3,7,4,9,1]],
-            [[1,3,11,6,4,9,1]],
-            [[1,3,7,6,10,1],[4,5,9,4]],
-            [[1,3,11,10,1],[4,5,9,4]],
-            [[1,3,7,5,1]],
-            [[1,3,11,6,5,1]],
-            [[1,3,7,6,10,1]],
-            [[1,3,11,10,1]],
-            [[1,2,11,8,9,1]],
-            [[1,2,6,7,8,9,1]],
-            [[1,2,11,8,9,1],[5,6,10,5]],
-            [[1,2,10,1],[5,7,8,9,5]],
-            [[1,2,11,8,4,5,1]],
-            [[1,2,6,5,1],[4,7,8,4]],
-            [[1,2,10,1],[4,6,11,8,4]],
-            [[1,2,10,1],[4,7,8,4]],
-            [[1,2,11,7,4,9,1]],
-            [[1,2,6,4,9,1]],
-            [[1,2,11,7,4,9,1],[5,6,10,5]],
-            [[1,2,10,1],[4,5,9,4]],
-            [[1,2,11,7,5,1]],
-            [[1,2,6,5,1]],
-            [[1,2,10,1],[6,7,11,6]],
-            [[1,2,10,1]],
-            [[2,3,8,9,10,2]],
-            [[2,3,11,2],[6,7,8,9,10,6]],
-            [[2,3,8,9,5,6,2]],
-            [[2,3,11,2],[5,7,8,9,5]],
-            [[2,3,8,4,5,10,2]],
-            [[2,3,11,2],[4,7,8,4],[5,6,10,5]],
-            [[2,3,8,4,6,2]],
-            [[2,3,11,2],[4,7,8,4]],
-            [[2,3,7,4,9,10,2]],
-            [[2,3,11,2],[4,6,10,9,4]],
-            [[2,3,7,6,2],[4,5,9,4]],
-            [[2,3,11,2],[4,5,9,4]],
-            [[2,3,7,5,10,2]],
-            [[2,3,11,2],[5,6,10,5]],
-            [[2,3,7,6,2]],
-            [[2,3,11,2]],
-            [[8,9,10,11,8]],
-            [[6,7,8,9,10,6]],
-            [[5,6,11,8,9,5]],
-            [[5,7,8,9,5]],
-            [[4,5,10,11,8,4]],
-            [[4,7,8,4],[5,6,10,5]],
-            [[4,6,11,8,4]],
-            [[4,7,8,4]],
-            [[4,7,11,10,9,4]],
-            [[4,6,10,9,4]],
-            [[4,5,9,4],[6,7,11,6]],
-            [[4,5,9,4]],
-            [[5,7,11,10,5]],
-            [[5,6,10,5]],
-            [[6,7,11,6]],
-            [[]]]
-
-    class cube(object):
+    
+    mode = mode.lower()
+    
+    if color is not None:
+        try:
+            color = pltcolors.to_rgb(color)
+        except ValueError:
+            color = (0.0, 0.0, 0.0)
+    if colormap is not None:
+        try:
+            pltcolors.to_rgb(colormap(0.0))
+            pltcolors.to_rgb(colormap(0.5))
+            pltcolors.to_rgb(colormap(1.0))
+        except Exception:
+            colormap = None
+    
+    paths={0:[[]],
+        1:[[6, 7, 11, 6]],
+        2:[[5, 6, 10, 5]],
+        3:[[5, 7, 11, 10, 5]],
+        4:[[4, 5, 9, 4]],
+        5:[[4, 5, 9, 4], [6, 7, 11, 6]],
+        6:[[4, 6, 10, 9, 4]],
+        7:[[4, 7, 11, 10, 9, 4]],
+        8:[[4, 7, 8, 4]],
+        9:[[4, 6, 11, 8, 4]],
+        10:[[4, 7, 8, 4], [5, 6, 10, 5]],
+        11:[[4, 5, 10, 11, 8, 4]],
+        12:[[5, 7, 8, 9, 5]],
+        13:[[5, 6, 11, 8, 9, 5]],
+        14:[[6, 7, 8, 9, 10, 6]],
+        15:[[8, 9, 10, 11, 8]],
+        16:[[2, 3, 11, 2]],
+        17:[[2, 3, 7, 6, 2]],
+        18:[[2, 3, 11, 2], [5, 6, 10, 5]],
+        19:[[2, 3, 7, 5, 10, 2]],
+        20:[[2, 3, 11, 2], [4, 5, 9, 4]],
+        21:[[2, 3, 7, 6, 2], [4, 5, 9, 4]],
+        22:[[2, 3, 11, 2], [4, 6, 10, 9, 4]],
+        23:[[2, 3, 7, 4, 9, 10, 2]],
+        24:[[2, 3, 11, 2], [4, 7, 8, 4]],
+        25:[[2, 3, 8, 4, 6, 2]],
+        26:[[2, 3, 11, 2], [4, 7, 8, 4], [5, 6, 10, 5]],
+        27:[[2, 3, 8, 4, 5, 10, 2]],
+        28:[[2, 3, 11, 2], [5, 7, 8, 9, 5]],
+        29:[[2, 3, 8, 9, 5, 6, 2]],
+        30:[[2, 3, 11, 2], [6, 7, 8, 9, 10, 6]],
+        31:[[2, 3, 8, 9, 10, 2]],
+        32:[[1, 2, 10, 1]],
+        33:[[1, 2, 10, 1], [6, 7, 11, 6]],
+        34:[[1, 2, 6, 5, 1]],
+        35:[[1, 2, 11, 7, 5, 1]],
+        36:[[1, 2, 10, 1], [4, 5, 9, 4]],
+        37:[[1, 2, 10, 1], [4, 5, 9, 4], [6, 7, 11, 6]],
+        38:[[1, 2, 6, 4, 9, 1]],
+        39:[[1, 2, 11, 7, 4, 9, 1]],
+        40:[[1, 2, 10, 1], [4, 7, 8, 4]],
+        41:[[1, 2, 10, 1], [4, 6, 11, 8, 4]],
+        42:[[1, 2, 6, 5, 1], [4, 7, 8, 4]],
+        43:[[1, 2, 11, 8, 4, 5, 1]],
+        44:[[1, 2, 10, 1], [5, 7, 8, 9, 5]],
+        45:[[1, 2, 10, 1], [5, 6, 11, 8, 9, 5]],
+        46:[[1, 2, 6, 7, 8, 9, 1]],
+        47:[[1, 2, 11, 8, 9, 1]],
+        48:[[1, 3, 11, 10, 1]],
+        49:[[1, 3, 7, 6, 10, 1]],
+        50:[[1, 3, 11, 6, 5, 1]],
+        51:[[1, 3, 7, 5, 1]],
+        52:[[1, 3, 11, 10, 1], [4, 5, 9, 4]],
+        53:[[1, 3, 7, 6, 10, 1], [4, 5, 9, 4]],
+        54:[[1, 3, 11, 6, 4, 9, 1]],
+        55:[[1, 3, 7, 4, 9, 1]],
+        56:[[1, 3, 11, 10, 1], [4, 7, 8, 4]],
+        57:[[1, 3, 8, 4, 6, 10, 1]],
+        58:[[1, 3, 11, 6, 5, 1], [4, 7, 8, 4]],
+        59:[[1, 3, 8, 4, 5, 1]],
+        60:[[1, 3, 11, 10, 1], [5, 7, 8, 9, 5]],
+        61:[[1, 3, 8, 9, 1], [5, 6, 10, 5]],
+        62:[[1, 3, 8, 9, 1], [6, 7, 11, 6]],
+        63:[[1, 3, 8, 9, 1]],
+        64:[[0, 1, 9, 0]],
+        65:[[0, 1, 9, 0], [6, 7, 11, 6]],
+        66:[[0, 1, 9, 0], [5, 6, 10, 5]],
+        67:[[0, 1, 9, 0], [5, 7, 11, 10, 5]],
+        68:[[0, 1, 5, 4, 0]],
+        69:[[0, 1, 5, 4, 0], [6, 7, 11, 6]],
+        70:[[0, 1, 10, 6, 4, 0]],
+        71:[[0, 1, 10, 11, 7, 4, 0]],
+        72:[[0, 1, 9, 0], [4, 7, 8, 4]],
+        73:[[0, 1, 9, 0], [4, 6, 11, 8, 4]],
+        74:[[0, 1, 9, 0], [4, 7, 8, 4], [5, 6, 10, 5]],
+        75:[[0, 1, 9, 0], [4, 5, 10, 11, 8, 4]],
+        76:[[0, 1, 5, 7, 8, 0]],
+        77:[[0, 1, 5, 6, 11, 8, 0]],
+        78:[[0, 1, 10, 6, 7, 8, 0]],
+        79:[[0, 1, 10, 11, 8, 0]],
+        80:[[0, 1, 9, 0], [2, 3, 11, 2]],
+        81:[[0, 1, 9, 0], [2, 3, 7, 6, 2]],
+        82:[[0, 1, 9, 0], [2, 3, 11, 2], [5, 6, 10, 5]],
+        83:[[0, 1, 9, 0], [2, 3, 7, 5, 10, 2]],
+        84:[[0, 1, 5, 4, 0], [2, 3, 11, 2]],
+        85:[[0, 1, 5, 4, 0], [2, 3, 7, 6, 2]],
+        86:[[0, 1, 10, 6, 4, 0], [2, 3, 11, 2]],
+        87:[[0, 3, 7, 4, 0], [1, 2, 10, 1]],
+        88:[[0, 1, 9, 0], [2, 3, 11, 2], [4, 7, 8, 4]],
+        89:[[0, 1, 9, 0], [2, 3, 8, 4, 6, 2]],
+        90:[[0, 1, 9, 0], [2, 3, 11, 2], [4, 7, 8, 4], [5, 6, 10, 5]],
+        91:[[0, 1, 9, 0], [2, 3, 8, 4, 5, 10, 2]],
+        92:[[0, 1, 5, 7, 8, 0], [2, 3, 11, 2]],
+        93:[[0, 3, 8, 0], [1, 2, 6, 5, 1]],
+        94:[[0, 3, 8, 0], [1, 2, 10, 1], [6, 7, 11, 6]],
+        95:[[0, 3, 8, 0], [1, 2, 10, 1]],
+        96:[[0, 2, 10, 9, 0]],
+        97:[[0, 2, 10, 9, 0], [6, 7, 11, 6]],
+        98:[[0, 2, 6, 5, 9, 0]],
+        99:[[0, 2, 11, 7, 5, 9, 0]],
+        100:[[0, 2, 10, 5, 4, 0]],
+        101:[[0, 2, 11, 7, 4, 0], [5, 6, 10, 5]],
+        102:[[0, 2, 6, 4, 0]],
+        103:[[0, 2, 11, 7, 4, 0]],
+        104:[[0, 2, 10, 9, 0], [4, 7, 8, 4]],
+        105:[[0, 2, 10, 9, 0], [4, 6, 11, 8, 4]],
+        106:[[0, 2, 6, 5, 9, 0], [4, 7, 8, 4]],
+        107:[[0, 2, 11, 8, 0], [4, 5, 9, 4]],
+        108:[[0, 2, 10, 5, 7, 8, 0]],
+        109:[[0, 2, 11, 8, 0], [5, 6, 10, 5]],
+        110:[[0, 2, 6, 7, 8, 0]],
+        111:[[0, 2, 11, 8, 0]],
+        112:[[0, 3, 11, 10, 9, 0]],
+        113:[[0, 3, 7, 6, 10, 9, 0]],
+        114:[[0, 3, 11, 6, 5, 9, 0]],
+        115:[[0, 3, 7, 5, 9, 0]],
+        116:[[0, 3, 11, 10, 5, 4, 0]],
+        117:[[0, 3, 7, 4, 0], [5, 6, 10, 5]],
+        118:[[0, 3, 11, 6, 4, 0]],
+        119:[[0, 3, 7, 4, 0]],
+        120:[[0, 3, 11, 10, 9, 0], [4, 7, 8, 4]],
+        121:[[0, 3, 8, 0], [4, 6, 10, 9, 4]],
+        122:[[0, 3, 8, 0], [4, 5, 9, 4], [6, 7, 11, 6]],
+        123:[[0, 3, 8, 0], [4, 5, 9, 4]],
+        124:[[0, 3, 8, 0], [5, 7, 11, 10, 5]],
+        125:[[0, 3, 8, 0], [5, 6, 10, 5]],
+        126:[[0, 3, 8, 0], [6, 7, 11, 6]],
+        127:[[0, 3, 8, 0]],
+        128:[[0, 3, 8, 0]],
+        129:[[0, 3, 8, 0], [6, 7, 11, 6]],
+        130:[[0, 3, 8, 0], [5, 6, 10, 5]],
+        131:[[0, 3, 8, 0], [5, 7, 11, 10, 5]],
+        132:[[0, 3, 8, 0], [4, 5, 9, 4]],
+        133:[[0, 3, 8, 0], [4, 5, 9, 4], [6, 7, 11, 6]],
+        134:[[0, 3, 8, 0], [4, 6, 10, 9, 4]],
+        135:[[0, 3, 8, 0], [4, 7, 11, 10, 9, 4]],
+        136:[[0, 3, 7, 4, 0]],
+        137:[[0, 3, 11, 6, 4, 0]],
+        138:[[0, 3, 7, 4, 0], [5, 6, 10, 5]],
+        139:[[0, 3, 11, 10, 5, 4, 0]],
+        140:[[0, 3, 7, 5, 9, 0]],
+        141:[[0, 3, 11, 6, 5, 9, 0]],
+        142:[[0, 3, 7, 6, 10, 9, 0]],
+        143:[[0, 3, 11, 10, 9, 0]],
+        144:[[0, 2, 11, 8, 0]],
+        145:[[0, 2, 6, 7, 8, 0]],
+        146:[[0, 2, 11, 8, 0], [5, 6, 10, 5]],
+        147:[[0, 2, 10, 5, 7, 8, 0]],
+        148:[[0, 2, 11, 8, 0], [4, 5, 9, 4]],
+        149:[[0, 2, 6, 7, 8, 0], [4, 5, 9, 4]],
+        150:[[0, 2, 11, 8, 0], [4, 6, 10, 9, 4]],
+        151:[[0, 2, 10, 9, 0], [4, 7, 8, 4]],
+        152:[[0, 2, 11, 7, 4, 0]],
+        153:[[0, 2, 6, 4, 0]],
+        154:[[0, 2, 11, 7, 4, 0], [5, 6, 10, 5]],
+        155:[[0, 2, 10, 5, 4, 0]],
+        156:[[0, 2, 11, 7, 5, 9, 0]],
+        157:[[0, 2, 6, 5, 9, 0]],
+        158:[[0, 2, 10, 9, 0], [6, 7, 11, 6]],
+        159:[[0, 2, 10, 9, 0]],
+        160:[[0, 3, 8, 0], [1, 2, 10, 1]],
+        161:[[0, 3, 8, 0], [1, 2, 10, 1], [6, 7, 11, 6]],
+        162:[[0, 3, 8, 0], [1, 2, 6, 5, 1]],
+        163:[[0, 3, 8, 0], [1, 2, 11, 7, 5, 1]],
+        164:[[0, 3, 8, 0], [1, 2, 10, 1], [4, 5, 9, 4]],
+        165:[[0, 3, 8, 0], [1, 2, 10, 1], [4, 5, 9, 4], [6, 7, 11, 6]],
+        166:[[0, 3, 8, 0], [1, 2, 6, 4, 9, 1]],
+        167:[[0, 3, 8, 0], [1, 2, 11, 7, 4, 9, 1]],
+        168:[[0, 3, 7, 4, 0], [1, 2, 10, 1]],
+        169:[[0, 3, 11, 6, 4, 0], [1, 2, 10, 1]],
+        170:[[0, 3, 7, 4, 0], [1, 2, 6, 5, 1]],
+        171:[[0, 1, 5, 4, 0], [2, 3, 11, 2]],
+        172:[[0, 1, 9, 0], [2, 3, 7, 5, 10, 2]],
+        173:[[0, 1, 9, 0], [2, 3, 11, 2], [5, 6, 10, 5]],
+        174:[[0, 1, 9, 0], [2, 3, 7, 6, 2]],
+        175:[[0, 1, 9, 0], [2, 3, 11, 2]],
+        176:[[0, 1, 10, 11, 8, 0]],
+        177:[[0, 1, 10, 6, 7, 8, 0]],
+        178:[[0, 1, 5, 6, 11, 8, 0]],
+        179:[[0, 1, 5, 7, 8, 0]],
+        180:[[0, 1, 9, 0], [4, 5, 10, 11, 8, 4]],
+        181:[[0, 1, 9, 0], [4, 7, 8, 4], [5, 6, 10, 5]],
+        182:[[0, 1, 9, 0], [4, 6, 11, 8, 4]],
+        183:[[0, 1, 9, 0], [4, 7, 8, 4]],
+        184:[[0, 1, 10, 11, 7, 4, 0]],
+        185:[[0, 1, 10, 6, 4, 0]],
+        186:[[0, 1, 5, 4, 0], [6, 7, 11, 6]],
+        187:[[0, 1, 5, 4, 0]],
+        188:[[0, 1, 9, 0], [5, 7, 11, 10, 5]],
+        189:[[0, 1, 9, 0], [5, 6, 10, 5]],
+        190:[[0, 1, 9, 0], [6, 7, 11, 6]],
+        191:[[0, 1, 9, 0]],
+        192:[[1, 3, 8, 9, 1]],
+        193:[[1, 3, 8, 9, 1], [6, 7, 11, 6]],
+        194:[[1, 3, 8, 9, 1], [5, 6, 10, 5]],
+        195:[[1, 3, 8, 9, 1], [5, 7, 11, 10, 5]],
+        196:[[1, 3, 8, 4, 5, 1]],
+        197:[[1, 3, 8, 4, 5, 1], [6, 7, 11, 6]],
+        198:[[1, 3, 8, 4, 6, 10, 1]],
+        199:[[1, 3, 11, 10, 1], [4, 7, 8, 4]],
+        200:[[1, 3, 7, 4, 9, 1]],
+        201:[[1, 3, 11, 6, 4, 9, 1]],
+        202:[[1, 3, 7, 6, 10, 1], [4, 5, 9, 4]],
+        203:[[1, 3, 11, 10, 1], [4, 5, 9, 4]],
+        204:[[1, 3, 7, 5, 1]],
+        205:[[1, 3, 11, 6, 5, 1]],
+        206:[[1, 3, 7, 6, 10, 1]],
+        207:[[1, 3, 11, 10, 1]],
+        208:[[1, 2, 11, 8, 9, 1]],
+        209:[[1, 2, 6, 7, 8, 9, 1]],
+        210:[[1, 2, 11, 8, 9, 1], [5, 6, 10, 5]],
+        211:[[1, 2, 10, 1], [5, 7, 8, 9, 5]],
+        212:[[1, 2, 11, 8, 4, 5, 1]],
+        213:[[1, 2, 6, 5, 1], [4, 7, 8, 4]],
+        214:[[1, 2, 10, 1], [4, 6, 11, 8, 4]],
+        215:[[1, 2, 10, 1], [4, 7, 8, 4]],
+        216:[[1, 2, 11, 7, 4, 9, 1]],
+        217:[[1, 2, 6, 4, 9, 1]],
+        218:[[1, 2, 11, 7, 4, 9, 1], [5, 6, 10, 5]],
+        219:[[1, 2, 10, 1], [4, 5, 9, 4]],
+        220:[[1, 2, 11, 7, 5, 1]],
+        221:[[1, 2, 6, 5, 1]],
+        222:[[1, 2, 10, 1], [6, 7, 11, 6]],
+        223:[[1, 2, 10, 1]],
+        224:[[2, 3, 8, 9, 10, 2]],
+        225:[[2, 3, 11, 2], [6, 7, 8, 9, 10, 6]],
+        226:[[2, 3, 8, 9, 5, 6, 2]],
+        227:[[2, 3, 11, 2], [5, 7, 8, 9, 5]],
+        228:[[2, 3, 8, 4, 5, 10, 2]],
+        229:[[2, 3, 11, 2], [4, 7, 8, 4], [5, 6, 10, 5]],
+        230:[[2, 3, 8, 4, 6, 2]],
+        231:[[2, 3, 11, 2], [4, 7, 8, 4]],
+        232:[[2, 3, 7, 4, 9, 10, 2]],
+        233:[[2, 3, 11, 2], [4, 6, 10, 9, 4]],
+        234:[[2, 3, 7, 6, 2], [4, 5, 9, 4]],
+        235:[[2, 3, 11, 2], [4, 5, 9, 4]],
+        236:[[2, 3, 7, 5, 10, 2]],
+        237:[[2, 3, 11, 2], [5, 6, 10, 5]],
+        238:[[2, 3, 7, 6, 2]],
+        239:[[2, 3, 11, 2]],
+        240:[[8, 9, 10, 11, 8]],
+        241:[[6, 7, 8, 9, 10, 6]],
+        242:[[5, 6, 11, 8, 9, 5]],
+        243:[[5, 7, 8, 9, 5]],
+        244:[[4, 5, 10, 11, 8, 4]],
+        245:[[4, 7, 8, 4], [5, 6, 10, 5]],
+        246:[[4, 6, 11, 8, 4]],
+        247:[[4, 7, 8, 4]],
+        248:[[4, 7, 11, 10, 9, 4]],
+        249:[[4, 6, 10, 9, 4]],
+        250:[[4, 5, 9, 4], [6, 7, 11, 6]],
+        251:[[4, 5, 9, 4]],
+        252:[[5, 7, 11, 10, 5]],
+        253:[[5, 6, 10, 5]],
+        254:[[6, 7, 11, 6]],
+        255:[[]]}
+    
+    class cube:
         def __init__(self,Sv1,deltax,deltay,deltaz,f):
             if not isinstance(Sv1,np.ndarray):
                 Sv1=np.array(Sv1)
@@ -1566,41 +1657,42 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
             self.deltaz=deltaz
             self.V=[Sv1,Sv1+np.array([deltax,0,0]),Sv1+np.array([deltax,deltay,0]),Sv1+np.array([0,deltay,0]),Sv1+np.array([0,0,deltaz]),Sv1+np.array([deltax,0,deltaz]),Sv1+np.array([deltax,deltay,deltaz]),Sv1+np.array([0,deltay,deltaz])]
             self.viewVal=sum([(self.V[0][i]-start[i]+self.V[6][i]-stop[i])/2*viewWeights[i] for i in range(3)])
+            self.c=0.5*(self.V[0]+self.V[6])
             self.errx=1e-3*(self.V[6][0]-self.V[0][0])
             self.erry=1e-3*(self.V[6][1]-self.V[0][1])
             self.errz=1e-3*(self.V[6][2]-self.V[0][2])
             self.zero=0.0#1e-6*self.deltax*self.deltay*self.deltaz
             self.f=f
             self.F=[0 for i in range(8)]
+            self.fc=0
             self.full=False
             self.done=False
             self.Px=[]
             self.Py=[]
             self.Pz=[]
-
-        def adjust(self,a,fa,b=None):
-            shift=100
-            tempa=a
-            tempfa=fa
-            if math.isinf(fa) or math.isnan(fa):
-                i=1
-                if b is None:
-                    b=0.5*(self.V[0]+self.V[6])
-                tempa=a+(b-a)/shift
-                tempfa=self.f(tempa,*args,**kwargs)
-                abool=math.isinf(tempfa) or math.isnan(fa)
-                while abool and i<shift-1:
-                    i+=1
-                    tempa=a+(b-a)*i/shift
-                    tempfa=self.f(tempa,*args,**kwargs)
-                    abool=math.isinf(tempfa) or math.isnan(fa)
-                if abool:
-                    tempa=a
-                    tempfa=fa
-            return tempa,tempfa
-
+            
+        def adjust(self, a, b=None, terminate=True):
+            shift = 100
+            i = 0
+            if b is None:
+                b = self.c
+            nanbool = True
+            while nanbool and i <= shift:
+                try:
+                    tempa = a + i * (b - a) / shift
+                    tempfa = f(tempa, *args, **kwargs)
+                    nanbool = math.isinf(tempfa) or math.isnan(tempfa)
+                except Exception:
+                    nanbool = True
+                i += 1
+            if nanbool:
+                tempa = a.copy()
+                tempfa = 0
+                self.done = terminate
+            return tempa, tempfa
+        
         def intersect(self,a,b,fa,fb,Px,Py,Pz,mode="linear"):
-            if mode.lower() in ["quad","quadratic","2","two","second"]:
+            if mode in ["quad","quadratic","2","two","second"]:
                 if abs(a[0]-b[0])<=self.errx and abs(a[1]-b[1])<=self.erry:
                     c=np.array([a[0],a[1],0.5*(a[2]+b[2])])
                     pivot=2
@@ -1610,8 +1702,7 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                 else:
                     c=np.array([0.5*(a[0]+b[0]),a[1],a[2]])
                     pivot=0
-                fc=self.f(c,*args,**kwargs)
-                c,fc=self.adjust(c,fc)
+                c,fc=self.adjust(c,b=self.V[0])
                 A=((b[pivot]-c[pivot])*fa+(c[pivot]-a[pivot])*fb+(a[pivot]-b[pivot])*fc)/((a[pivot]-b[pivot])*(a[pivot]-c[pivot])*(b[pivot]-c[pivot]))
                 B=((c[pivot]**2-b[pivot]**2)*fa+(a[pivot]**2-c[pivot]**2)*fb+(b[pivot]**2-a[pivot]**2)*fc)/((a[pivot]-b[pivot])*(a[pivot]-c[pivot])*(b[pivot]-c[pivot]))
                 C=((b[pivot]-c[pivot])*b[pivot]*c[pivot]*fa+(c[pivot]-a[pivot])*c[pivot]*a[pivot]*fb+(a[pivot]-b[pivot])*a[pivot]*b[pivot]*fc)/((a[pivot]-b[pivot])*(a[pivot]-c[pivot])*(b[pivot]-c[pivot]))
@@ -1654,7 +1745,7 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                         Px.append(a[0])
                         Py.append(a[1])
                         Pz.append(res/rcount)
-            elif mode.lower() in ["cube","cubic","3","three","third"]:
+            elif mode in ["cube","cubic","3","three","third"]:
                 if abs(a[0]-b[0])<=self.errx and abs(a[1]-b[1])<=self.erry:
                     h=1e-3*self.deltaz
                     aplus=a+np.array([0,0,h])
@@ -1676,19 +1767,15 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                     bplus=b+np.array([h,0,0])
                     bminus=b-np.array([h,0,0])
                     pivot=0
-
-                faplus=self.f(aplus,*args,**kwargs)
-                aplus,faplus=self.adjust(aplus,faplus)
-                faminus=self.f(aminus,*args,**kwargs)
-                aminus,faminus=self.adjust(aminus,faminus)
-                fbplus=self.f(bplus,*args,**kwargs)
-                bplus,fbplus=self.adjust(bplus,fbplus)            
-                fbminus=self.f(bminus,*args,**kwargs)
-                bminus,fbminus=self.adjust(bminus,fbminus)
-
+                
+                aplus,faplus=self.adjust(aplus)
+                aminus,faminus=self.adjust(aminus)
+                bplus,fbplus=self.adjust(bplus)
+                bminus,fbminus=self.adjust(bminus)
+                
                 faprime=(faplus-faminus)/(2*h)
                 fbprime=(fbplus-fbminus)/(2*h)
-
+                    
                 A=(a[pivot]*faprime+a[pivot]*fbprime-b[pivot]*faprime-b[pivot]*fbprime-2*fa+2*fb)/((a[pivot]-b[pivot])**3)
                 B=(-a[pivot]**2*faprime-2*a[pivot]**2*fbprime-a[pivot]*b[pivot]*faprime+a[pivot]*b[pivot]*fbprime+3*a[pivot]*fa-3*a[pivot]*fb+2*b[pivot]**2*faprime+b[pivot]**2*fbprime+3*b[pivot]*fa-3*b[pivot]*fb)/((a[pivot]-b[pivot])**3)
                 C=(a[pivot]**3*fbprime+2*a[pivot]**2*b[pivot]*faprime+a[pivot]**2*b[pivot]*fbprime-a[pivot]*b[pivot]**2*faprime-2*a[pivot]*b[pivot]**2*fbprime-6*a[pivot]*b[pivot]*fa+6*a[pivot]*b[pivot]*fb-b[pivot]**3*faprime)/((a[pivot]-b[pivot])**3)
@@ -1737,21 +1824,21 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                 Px.append(temp[0])
                 Py.append(temp[1])
                 Pz.append(temp[2])
-
+        
         def calc(self):
             for i in range(8):
-                v,fv=self.adjust(self.V[i],self.f(self.V[i],*args,**kwargs))
+                v,fv=self.adjust(self.V[i])
                 self.F[i]=fv
+            self.c,self.fc=self.adjust(self.c,b=self.V[0])
             self.full=True
             for fv in self.F:
                 if abs(fv)>self.zero:
                     self.full=False
                     break
-
+            
             if not self.full:
                 if all([fv<0 for fv in self.F]) or all([fv>0 for fv in self.F]):
                     self.done=True
-                    c,fc=self.adjust(0.5*(self.V[0]+self.V[6]),self.f(0.5*(self.V[0]+self.V[6]),*args,**kwargs),b=self.V[0])
                     for i in range(6):
                         if i in [0,1,2]:
                             mid=0.5*(self.V[i]+self.V[i+5])
@@ -1761,8 +1848,8 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                             mid=0.5*(self.V[0]+self.V[2])
                         else:
                             mid=0.5*(self.V[4]+self.V[6])
-                        mid,fm=self.adjust(mid,self.f(mid,*args,**kwargs))
-                        if fm*fc<0:
+                        mid,fm=self.adjust(mid,terminate=False)
+                        if fm*self.fc<0:
                             self.done=False
                             break
                     if self.done:
@@ -1777,22 +1864,57 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                                 mid=0.5*(self.V[i-4]+self.V[i-3])
                             else:
                                 mid=0.5*(self.V[7]+self.V[4])
-                            mid,fm=self.adjust(mid,self.f(mid,*args,**kwargs))
-                            if fm*fc<0:
+                            mid,fm=self.adjust(mid,terminate=False)
+                            if fm*self.fc<0:
                                 self.done=False
                                 break
-
+        
+        def is_straight(self):
+            diffx=np.zeros(len(self.V))
+            diffy=np.zeros(len(self.V))
+            diffz=np.zeros(len(self.V))
+            for i in range(len(self.V)):
+                plus,fplus=self.adjust(self.V[i]+np.array([1e-3*self.deltax,0,0]),
+                                       b=self.V[i]+np.array([self.deltax,0,0]),terminate=False)
+                minus,fminus=self.adjust(self.V[i]-np.array([1e-3*self.deltax,0,0]),
+                                         b=self.V[i]-np.array([self.deltax,0,0]),terminate=False)
+                diffx[i]=(fplus-fminus)/(plus[0]-minus[0])
+                
+                plus,fplus=self.adjust(self.V[i]+np.array([0,1e-3*self.deltay,0]),
+                                       b=self.V[i]+np.array([0,self.deltay,0]),terminate=False)
+                minus,fminus=self.adjust(self.V[i]-np.array([0,1e-3*self.deltay,0]),
+                                         b=self.V[i]-np.array([0,self.deltay,0]),terminate=False)
+                diffy[i]=(fplus-fminus)/(plus[1]-minus[1])
+                
+                plus,fplus=self.adjust(self.V[i]+np.array([0,0,1e-3*self.deltaz]),
+                                       b=self.V[i]+np.array([0,0,self.deltaz]),terminate=False)
+                minus,fminus=self.adjust(self.V[i]-np.array([0,0,1e-3*self.deltaz]),
+                                         b=self.V[i]-np.array([0,0,self.deltaz]),terminate=False)
+                diffz[i]=(fplus-fminus)/(plus[2]-minus[2])
+                
+            if all([(diffx[i] - diffx[0]) ** 2 + (diffy[i] - diffy[0]) ** 2 +
+                    (diffz[i] - diffz[0]) ** 2 <= 3 * (0.5) ** 2
+                    for i in range(1, len(self.V))]):
+                return True
+            elif any([math.isinf(diffx[i] - diffx[0]) or math.isinf(diffy[i] - diffy[0]) or
+                      math.isinf(diffz[i] - diffz[0]) or math.isnan(diffx[i] - diffx[0]) or
+                      math.isnan(diffy[i] - diffy[0]) or math.isnan(diffz[i] - diffz[0])
+                      for i in range(1, len(self.V))]):
+                return True
+            return False
+        
         def split(self,C):
-            if not self.done and not self.full:
-                splitC=[]
-                for c in [cube(0.5*(self.V[0]+self.V[i]),self.deltax/2,self.deltay/2,self.deltaz/2,self.f) for i in range(8)]:
-                    c.calc()
-                    if not c.done:
-                        splitC.append(c)
-                C+=splitC
-            elif self.full:
-                C+=[self]
-
+            if not self.done:
+                if not self.full and not self.is_straight():
+                    splitC=[]
+                    for c in [cube(0.5*(self.V[0]+self.V[i]),self.deltax/2,self.deltay/2,self.deltaz/2,self.f) for i in range(8)]:
+                        c.calc()
+                        if not c.done:
+                            splitC.append(c)
+                    C+=splitC
+                else:
+                    C+=[self]
+        
         def findpoints(self):
             if not self.done and not self.full:
                 index=0
@@ -1809,68 +1931,33 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
                                 self.intersect(self.V[e],self.V[e-3],self.F[e],self.F[e-3],self.Px,self.Py,self.Pz,mode=mode)
                             else:
                                 self.intersect(self.V[e-8],self.V[e-4],self.F[e-8],self.F[e-4],self.Px,self.Py,self.Pz,mode=mode)
-
-        def draw(self,plotaxis):
+                
+        def draw(self,segments,colors,zorders):
             if not self.done:
                 if self.full:
-                    if colormap is not None:
-                        try:
-                            self.drawbox(plotaxis,colormap((0.5*(self.V[0][2]+self.V[6][2])-start[2])/(stop[2]-start[2])),alpha)
-                        except:
-                            self.drawbox(plotaxis,color,alpha)
-                    else:
-                        self.drawbox(plotaxis,color,alpha)
-                    self.done=True
+                    self.drawbox(segments,colors,zorders)
                 else:
                     if len(self.Px)>0:
-                        if surface:
-                            poly=art3d.Poly3DCollection([[[self.Px[i],self.Py[i],self.Pz[i]] for i in range(len(self.Px))]],linewidths=1,zorder=self.viewVal,alpha=alpha)
-                            if colormap is not None:
-                                try:
-                                    poly.set_facecolor(colormap((sum(self.Pz)/len(self.Pz)-start[2])/(stop[2]-start[2])))
-                                except:
-                                    poly.set_facecolor(color)
-                            else:
-                                poly.set_facecolor(color)
-                            if wireframe:
-                                if color=="black" and colormap is None:
-                                    poly.set_edgecolor("white")
-                                else:
-                                    poly.set_edgecolor("black")
-                            else:
-                                poly.set_edgecolor("face")
-                            plotaxis.add_collection3d(poly)
-                        else:
-                            if colormap is not None:
-                                try:
-                                    plotaxis.plot(self.Px+[self.Px[0]],self.Py+[self.Py[0]],self.Pz+[self.Pz[0]],zorder=self.viewVal,color=colormap((sum(self.Pz[:-1])/len(self.Pz[:-1])-start[2])/(stop[2]-start[2])),alpha=alpha)
-                                except:
-                                    plotaxis.plot(self.Px+[self.Px[0]],self.Py+[self.Py[0]],self.Pz+[self.Pz[0]],zorder=self.viewVal,color=color,alpha=alpha)
-                            else:
-                                plotaxis.plot(self.Px+[self.Px[0]],self.Py+[self.Py[0]],self.Pz+[self.Pz[0]],zorder=self.viewVal,color=color,alpha=alpha)
-
-        def drawbox(self,plotaxis,color,alpha):
-            if surface:
-                box=art3d.Poly3DCollection([[[self.V[i][0],self.V[i][1],self.V[i][2]] for i in [0,1,2,3]],
-                                            [[self.V[i][0],self.V[i][1],self.V[i][2]] for i in [0,1,5,4]],
-                                            [[self.V[i][0],self.V[i][1],self.V[i][2]] for i in [1,2,6,5]],
-                                            [[self.V[i][0],self.V[i][1],self.V[i][2]] for i in [2,3,7,6]],
-                                            [[self.V[i][0],self.V[i][1],self.V[i][2]] for i in [0,3,7,4]],
-                                            [[self.V[i][0],self.V[i][1],self.V[i][2]] for i in [4,5,6,7]]],
-                                            linewidths=1,zorder=self.viewVal,color=color,alpha=alpha)
-                if wireframe:
-                    if color!="black":
-                        box.set_edgecolor("black")
-                    else:
-                        box.set_edgecolor("white")
-                else:
-                    box.set_edgecolor("face")
-                plotaxis.add_collection3d(box)
-            else:
-                plotaxis.plot([self.V[0][0],self.V[1][0],self.V[5][0],self.V[1][0],self.V[2][0],self.V[6][0],self.V[2][0],self.V[3][0],self.V[7][0],self.V[3][0],self.V[0][0],self.V[4][0],self.V[5][0],self.V[6][0],self.V[7][0],self.V[4][0]],
-                              [self.V[0][1],self.V[1][1],self.V[5][1],self.V[1][1],self.V[2][1],self.V[6][1],self.V[2][1],self.V[3][1],self.V[7][1],self.V[3][1],self.V[0][1],self.V[4][1],self.V[5][1],self.V[6][1],self.V[7][1],self.V[4][1]],
-                              [self.V[0][2],self.V[1][2],self.V[5][2],self.V[1][2],self.V[2][2],self.V[6][2],self.V[2][2],self.V[3][2],self.V[7][2],self.V[3][2],self.V[0][2],self.V[4][2],self.V[5][2],self.V[6][2],self.V[7][2],self.V[4][2]],
-                              zorder=self.viewVal,color=color,alpha=alpha)
+                        segments.append(np.column_stack((self.Px,self.Py,self.Pz)))
+                        if colormap is not None:
+                            colors.append(colormap((sum(self.Pz)/len(self.Pz)-start[2])/(stop[2]-start[2])))
+                        zorders.append(self.viewVal)
+            
+        def drawbox(self,segments,colors,zorders):
+            segments.extend([[(self.V[i][0],self.V[i][1],self.V[i][2]) for i in (0, 1, 2, 3)],
+                             [(self.V[i][0],self.V[i][1],self.V[i][2]) for i in (0, 1, 5, 4)],
+                             [(self.V[i][0],self.V[i][1],self.V[i][2]) for i in (1, 2, 6, 5)],
+                             [(self.V[i][0],self.V[i][1],self.V[i][2]) for i in (2, 3, 7, 6)],
+                             [(self.V[i][0],self.V[i][1],self.V[i][2]) for i in (0, 3, 7, 4)],
+                             [(self.V[i][0],self.V[i][1],self.V[i][2]) for i in (4, 5, 6, 7)]])
+            if colormap is not None:
+                colors.extend([colormap((0.5 * (self.vertices[0][2] +
+                                         self.vertices[6][2]) -
+                                         start[2]) /
+                                        (stop[2] - start[2]))
+                               for i in range(6)])
+            zorders.extend([self.viewVal for i in range(6)])
+            self.done = True
 
     if adapt:
         delta=[max((stop[i]-start[i])/5,delta[i]) for i in range(3)]
@@ -1881,7 +1968,7 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
         for j in range(round((stop[1]-start[1])/delta[1])):
             for k in range(round((stop[2]-start[2])/delta[2])):
                 Sv1.append(np.array([start[0]+delta[0]*i,start[1]+delta[1]*j,start[2]+delta[2]*k]))
-
+    
     C=[cube(s,delta[0],delta[1],delta[2],f) for s in Sv1]
     for c in C:
         c.calc()
@@ -1892,14 +1979,33 @@ def surfaceplot(f,start,stop,delta,args=[],kwargs={},adapt=True,maxlevel=3,mode=
             for c in C:
                 c.split(newC)
             C=[c for c in newC]    
-
+    
     for c in C:
         c.findpoints()
-
+    
     if plotbool:
-        if wireframe or surface:
+        if not scatterplot:
+            segments=[]
+            colors=[]
+            zorders=[]
             for c in C:
-                c.draw(plotaxis)
+                c.draw(segments, colors, zorders)
+            if color is not None:
+                if colormap is not None:
+                    plotaxis.add_collection3d(art3d.Poly3DCollection(segments,facecolor=colors,edgecolor="black",
+                                                               zorder=zorders,alpha=alpha))
+                else:
+                    if sum(color) <= 0.5:
+                        plotaxis.add_collection3d(art3d.Poly3DCollection(segments,facecolor=color,edgecolor="white",
+                                                                   zorder=zorders,alpha=alpha))
+                    else:
+                        plotaxis.add_collection3d(art3d.Poly3DCollection(segments,facecolor=color,edgecolor="black",
+                                                                   zorder=zorders,alpha=alpha))
+            else:
+                if colormap is not None:
+                    plotaxis.add_collection3d(art3d.Poly3DCollection(segments,facecolor=(0,0,0,0),edgecolor=colors,zorder=zorders))
+                else:
+                    plotaxis.add_collection3d(art3d.Poly3DCollection(segments,facecolor=(0,0,0,0),edgecolor="black",zorder=zorders))
         else:
             Px,Py,Pz=[],[],[]
             for c in C:
