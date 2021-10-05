@@ -7,7 +7,9 @@ import matplotlib.colors as pltcolors
 #This file contains the edge class and its various methods.
 class edge(object):
     def __init__(self,p1,p2):
+        #This list keeps track of which points constitute the end-points of the edge object.
         self.points=[p1,p2]
+        #This list keeps track of which triangles the edge object is a constituent of.
         self.triangles=[]
         self.edgelength=None
         self.enclosed=False
@@ -203,6 +205,7 @@ class edge(object):
     def copy(self,blank=True):
         #This method returns a copy of the edge object.
         #Whether the copy contains all variables of the original used for constructing triangulations is user-designated.
+        #The edge object's triangle list is not copied.
         e=edge(self.points[0].copy(),self.points[1].copy())
         if self.edgelength is not None:
             e.edgelength=self.edgelength
