@@ -1,11 +1,72 @@
+import math
 import numpy as np
 import numpy.linalg as npla
+import scipy.sparse as scarse
+import matplotlib.pyplot as plt
+
+def plotMatrix(M,tol=1e-6,plotaxis=None,colormap=None,color="black",alpha=1.0):
+    graphsize=9
+    font = {"family": "serif",
+        "color": "black",
+        "weight": "bold",
+        "size": "20"}
+    plotfig=plt.figure(figsize=(graphsize,graphsize))
+    plotaxis=plotfig.add_subplot(111)
+    plt.gca().invert_yaxis()
+    plotaxis.set_title("Matrix",fontdict=font)
+    plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
+    plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
+    plotaxis.xaxis.set_tick_params(labelsize=16)
+    plotaxis.yaxis.set_tick_params(labelsize=16)
+    
+    mX=[]
+    mY=[]
+    
+    if ("bsr_matrix" in type(M).__name__ or "coo_matrix" in type(M).__name__ 
+        or "csc_matrix" in type(M).__name__ or "csr_matrix" in type(M).__name__
+        or "dia_matrix" in type(M).__name__ or "dok_matrix" in type(M).__name__
+        or "lil_matrix" in type(M).__name__):
+        if not isinstance(M,scarse.coo.coo_matrix):
+            M=scarse.coo_matrix(M)
+        minVal=M.data[0]
+        maxVal=M.data[0]
+        for i in range(len(M.data)):
+            mX.append(M.row[i])
+            mY.append(M.col[i])
+            if M.data[i]<minVal:
+                minVal=M.data[i]
+            if M.data[i]>maxVal:
+                maxVal=M.data[i]
+        if colormap is not None and (maxVal-minVal)>abs(tol):
+            res=plotaxis.scatter(mX,mY,c=M.data,alpha=alpha,s=150/math.sqrt(len(mX)),cmap=colormap)
+            plotfig.colorbar(res)
+        else:
+            plotaxis.scatter(mX,mY,color=color,alpha=alpha,s=150/math.sqrt(len(mX)))   
+    else:
+        minVal=M[0][0]
+        maxVal=M[0][0]
+        data=[]
+        for i in range(len(M)):
+            for j in range(len(M[i])):
+                if abs(M[i][j])>=abs(tol):
+                    mX.append(i)
+                    mY.append(j)
+                    data.append(M[i][j])
+                if M[i][j]<minVal:
+                    minVal=M[i][j]
+                if M[i][j]>maxVal:
+                    maxVal=M[i][j]
+        if colormap is not None and (maxVal-minVal)>abs(tol):
+            res=plotaxis.scatter(mX,mY,c=data,alpha=alpha,s=150/math.sqrt(len(mX)),cmap=colormap)
+            plotfig.colorbar(res)
+        else:
+            plotaxis.scatter(mX,mY,color=color,alpha=alpha,s=150/math.sqrt(len(mX)))
+    plt.show()    
 
 def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
-    """This method approximates the Jacobian of a multidimensional function f with
-    multidimensional input vector vect. Variable h is the step size used to
-    approximate the derivative."""
-    
+    #This method approximates the Jacobian of a multidimensional function f with
+    #multidimensional input vector vect. Variable h is the step size used to
+    #approximate the derivative.
     from toolbox.generaltoolbox import differentiate
     if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
         dim=1
@@ -14,10 +75,10 @@ def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
     else:
         print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
         return [[]]
-
+    
     if not isinstance(vect,np.ndarray):
         vect=np.array(vect)
-
+    
     res=f(vect,*args,**kwargs)
     if ("int" in type(res).__name__) or ("float" in type(res).__name__):
         return np.array([[differentiate(f,vect,variableDim=i) for i in range(dim)]])
@@ -26,14 +87,13 @@ def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
     else:
         print("Error: Function output is of incompatible type %s"%type(res).__name__)
         return [[]]
-
-def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
-    """This method performs Gramm Schmidt orthogonalization on a set of vectors.
-    Variable tol controls the tolerance for when to a vector orthogonalizable 
-    or not (depends on norm of vector). Variable normalize renormalizes each 
-    other the orthogonalized vectors. Variable clean removes any vectors that 
-    do not meet the orthogonalization tolerance."""
     
+def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
+    #This method performs Gramm Schmidt orthogonalization on a set of vectors.
+    #Variable tol controls the tolerance for when to a vector orthogonalizable 
+    #or not (depends on norm of vector). Variable normalize renormalizes each 
+    #other the orthogonalized vectors. Variable clean removes any vectors that 
+    #do not meet the orthogonalization tolerance.
     size=len(vectors)
     for i in range(size-1,-1,-1):
         try:
@@ -42,12 +102,12 @@ def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
         except:
             print("Number %i of the inputted vectors can not be converted to a numpy array"%i)
             return vectors
-
+    
     if any([len(vectors[i])!=len(vectors[i+1]) for i in range(size-1)]):
         print("Not all inputted vectors are the same size")
         return vectors
     dim=len(vectors[0])
-
+    
     orthogonals=[vectors[0]]
     norms=[npla.norm(vectors[0])]
     if norms[0]<tol:
@@ -71,25 +131,24 @@ def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
         for i in range(size):
             if norms[i]!=-1:
                 orthogonals[i]=orthogonals[i]/norms[i]
-
+            
     if clean:
         for i in range(size-1,-1,-1):
             if norms[i]==-1:
                 del orthogonals[i]
-
+            
     return orthogonals
 
 def jacobi(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
-    """This method implements the (weighted) Jacobi iterative matrix solver for 
-    nonsingular, square matrices. It attempts to solve the equation Ax=b. 
-    Variable errtol controls the tolerance for when approximation is
-    close enough to a solution. Variable maxlevel controls the maximal number
-    of iterations the method can perform. Variable x0 provides an optional 
-    first guess at the solution. Variable omega allows for the optional weighted
-    Jacobi iterative matrix solver, potentially increasing rate of convergence.
-    Variable inform allows the user to receive information about the process
-    (for verification purposes)."""
-    
+    #This method implements the (weighted) Jacobi iterative matrix solver for 
+    #nonsingular, square matrices. It attempts to solve the equation Ax=b. 
+    #Variable errtol controls the tolerance for when approximation is
+    #close enough to a solution. Variable maxlevel controls the maximal number
+    #of iterations the method can perform. Variable x0 provides an optional 
+    #first guess at the solution. Variable omega allows for the optional weighted
+    #Jacobi iterative matrix solver, potentially increasing rate of convergence.
+    #Variable inform allows the user to receive information about the process
+    #(for verification purposes).
     n=A.shape[0]
     if A.shape[0]!=A.shape[1]:
         if inform:
@@ -126,16 +185,15 @@ def jacobi(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
         return x
 
 def sor(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
-    """This method implements the (weighted) Successive Over-Relaxation iterative
-    matrix solver for nonsingular, square matrices. It attempts to solve the 
-    equation Ax=b. Variable errtol controls the tolerance for when 
-    approximation is close enough to a solution. Variable maxlevel controls 
-    the maximal number of iterations the method can perform. Variable x0 provides
-    an optional first guess at the solution. Variable omega allows for the 
-    optional weighted Successive Over-Relaxation iterative matrix solver, 
-    potentially increasing rate of convergence. Variable inform allows the user
-    to receive information about the process (for verification purposes)."""
-    
+    #This method implements the (weighted) Successive Over-Relaxation iterative
+    #matrix solver for nonsingular, square matrices. It attempts to solve the 
+    #equation Ax=b. Variable errtol controls the tolerance for when 
+    #approximation is close enough to a solution. Variable maxlevel controls 
+    #the maximal number of iterations the method can perform. Variable x0 provides
+    #an optional first guess at the solution. Variable omega allows for the 
+    #optional weighted Successive Over-Relaxation iterative matrix solver, 
+    #potentially increasing rate of convergence. Variable inform allows the user
+    #to receive information about the process (for verification purposes).
     n=A.shape[0]
     if A.shape[0]!=A.shape[1]:
         if inform:
@@ -171,14 +229,13 @@ def sor(A,b,errtol=1e-6,maxlevel=1000,x0=None,omega=1.0,inform=False):
         return x
 
 def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
-    """This method implements the Conjugate Gradient iterative matrix solver for 
-    Symmetric Positive Definite (SPD) matrices. It attempts to solve the 
-    equation Ax=b. Variable errtol controls the tolerance for when 
-    approximation is close enough to a solution. Variable maxlevel controls 
-    the maximal number of iterations the method can perform. Variable x0 provides
-    an optional first guess at the solution. Variable inform allows the user
-    to receive information about the process (for verification purposes)."""
-    
+    #This method implements the Conjugate Gradient iterative matrix solver for 
+    #Symmetric Positive Definite (SPD) matrices. It attempts to solve the 
+    #equation Ax=b. Variable errtol controls the tolerance for when 
+    #approximation is close enough to a solution. Variable maxlevel controls 
+    #the maximal number of iterations the method can perform. Variable x0 provides
+    #an optional first guess at the solution. Variable inform allows the user
+    #to receive information about the process (for verification purposes).
     n=A.shape[0]
     spdbool=False
     if (np.array_equal(A,A.T)):
@@ -214,13 +271,12 @@ def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
         return x
 
 def lu(A,b,tol=1e-6,symbol=False,inform=False):
-    """This method implements the general LU Decomposition matrix solver.
-    It attempts to solve the equation Ax=b. The variable tol controls the 
-    tolerance of what is to be considered zero or not. Variable symbol allows 
-    for the solving of matrix-vector equations involving symbols.Variable 
-    inform allows the user to receive information about the process 
-    (for verification purposes)."""
-    
+    #This method implements the general LU Decomposition matrix solver.
+    #It attempts to solve the equation Ax=b. The variable tol controls the 
+    #tolerance of what is to be considered zero or not. Variable symbol allows 
+    #for the solving of matrix-vector equations involving symbols.Variable 
+    #inform allows the user to receive information about the process 
+    #(for verification purposes).
     if not isinstance(A,np.ndarray):
         A=np.array(A)
     if not isinstance(b,np.ndarray):
@@ -328,7 +384,7 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
             print()
             if len(free)>0:
                 print("System has potentially infinite solutions; choosing one solution")
-
+            
         if symbol:
             y=zeros(1,n)
         else:
@@ -338,7 +394,7 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
                 y[i]=simplify((bcopy[i]-sum([L[i,j]*y[j] for j in range(i)]))/L[i,i])
             else:
                 y[i]=(bcopy[i]-sum([L[i][j]*y[j] for j in range(i)]))/L[i][i]
-
+        
         if symbol:
             x=zeros(1,m)
         else:
@@ -369,7 +425,7 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
                     x[pivot]=simplify((y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot])
                 else:
                     x[pivot]=(y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot]
-
+            
         if symbol:
             error=simplify(Matrix([sum([A[i][j]*x[j] for j in range(len(A[i]))])-b[i] for i in range(len(A))]).norm())
             if error!=0:
@@ -399,3 +455,27 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
         if inform:
             print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
         return []
+
+def powerMethod(A,tol=1e-6,max_iter=100,x0=None,report=False):
+    n=A.shape[0]
+    if x0!=None:
+        x=x0.copy()
+    else:
+        x=np.random.rand(A.shape[0])
+    lmbda=0
+    r=2*tol
+    k=0
+    while r>tol and k<max_iter:
+        y=A.dot(x)
+        x=y/npla.norm(y)
+        lmbda=np.inner(np.conjugate(x),y)
+        r=npla.norm((A-lmbda*np.identity(n)).dot(x))
+        k+=1
+    if report:
+        print("Power Method Performance Data:")
+        if k >= max_iter:
+            print("Number of iterations (Max Number of Iterations Reached): %i" % k)
+        else:
+            print("Number of iterations: %i" % k)
+        print("Error: %.6f" % r)
+    return lmbda,x
