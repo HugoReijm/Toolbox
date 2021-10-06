@@ -7,7 +7,7 @@ import matplotlib.colors as pltcolors
 import matplotlib.pyplot as plt
 
 def draw(P,E,T,points=True,edges=True,triangles=True,plotaxis=None,color="black",alpha=1):
-    #Draws a triangulation
+    #This method draws a triangulation.
     plotshowbool=False
     if plotaxis is None:
         graphsize=9
@@ -61,7 +61,7 @@ def draw(P,E,T,points=True,edges=True,triangles=True,plotaxis=None,color="black"
         plt.show()
     
 def convex_hull(P,errtol=1e-12):
-    #Quickhull algorithm that computes the convex hull of a number of points  
+    #This method executes the quickhull algorithm that computes the convex hull of a number of points.
     N=len(P)
     if N<=1:
         print("Error: Unable to make a convex hull due to lack of sufficient points")
@@ -80,7 +80,7 @@ def convex_hull(P,errtol=1e-12):
             print("Error: point set is colinear, unable to make convex hull")
             return []
        
-    #Finds the left_most and down_most point of the set
+    #Finds the left_most and down_most point of the set.
     left_anchor=P[0]
     for i in range(1,N):
         if P[i].x<left_anchor.x:
@@ -88,7 +88,7 @@ def convex_hull(P,errtol=1e-12):
         elif P[i].x==left_anchor.x and P[i].y<left_anchor.y:
             left_anchor=P[i]
     
-    #Finds the right_most and up_most point of the set
+    #Finds the right_most and up_most point of the set.
     right_anchor=P[0]
     for i in range(1,N):
         if P[i].x>right_anchor.x:
@@ -96,7 +96,7 @@ def convex_hull(P,errtol=1e-12):
         elif P[i].x==right_anchor.x and P[i].y>right_anchor.y:
             right_anchor=P[i]
     
-    #Finds the farthest points above the line between left_anchor and right_anchor
+    #Finds the farthest points above the line between left_anchor and right_anchor.
     farthest_anchor=left_anchor
     height=0
     for p in P:
@@ -105,7 +105,7 @@ def convex_hull(P,errtol=1e-12):
             farthest_anchor=p
             height=res
         
-    #Sorting points that into an upper half, but only focussing on those that dont yet fall into the contructed convex hull
+    #Sorting points that into an upper half, but only focussing on those that dont yet fall into the contructed convex hull.
     e0=edge(left_anchor,right_anchor)
     upper_hull=[edge(left_anchor,farthest_anchor),edge(farthest_anchor,right_anchor)]
     exterior=[]
@@ -117,13 +117,13 @@ def convex_hull(P,errtol=1e-12):
             if (right_anchor.x-left_anchor.x)*res>abs(errtol) and not tri.point_triangle_intersect(p,includeboundary=False):
                 exterior.append(p)
             
-    #Fully constructing the upper convex hull iteratively
+    #Fully constructing the upper convex hull iteratively.
     counter=0
     while len(exterior)>0 and counter<N:
         for i in range(len(upper_hull)):
             res1=upper_hull[i].points[1].x-upper_hull[i].points[0].x
             if res1!=0:
-                #Again finds the farthest points below line between two connected points in the convex hull
+                #Again finds the farthest points below line between two connected points in the convex hull.
                 farthest_anchor=upper_hull[i].points[0]
                 height=0
                 for p in exterior:
@@ -132,7 +132,7 @@ def convex_hull(P,errtol=1e-12):
                         farthest_anchor=p
                         height=res2
 
-                #If there exists a point outside the convex hull, change the hull to include it
+                #If there exists a point outside the convex hull, change the hull to include it.
                 if height>abs(errtol) or not farthest_anchor.is_point(upper_hull[i].points[0]):
                     e1=edge(upper_hull[i].points[0],farthest_anchor)
                     e2=edge(farthest_anchor,upper_hull[i].points[1])
@@ -149,7 +149,7 @@ def convex_hull(P,errtol=1e-12):
                     break
         counter+=1
     
-    #Finds the farthest points below the line between left_anchor and right_anchor
+    #Finds the farthest points below the line between left_anchor and right_anchor.
     farthest_anchor=right_anchor
     height=0
     for p in P:
@@ -158,7 +158,7 @@ def convex_hull(P,errtol=1e-12):
             farthest_anchor=p
             height=res
     
-    #Sorting points that into a lower half, but only focussing on those that dont yet fall into the contructed convex hull
+    #Sorting points that into a lower half, but only focussing on those that dont yet fall into the contructed convex hull.
     lower_hull=[edge(left_anchor,farthest_anchor),edge(farthest_anchor,right_anchor)]
     exterior=[]
     tri=triangle(left_anchor,farthest_anchor,right_anchor)
@@ -169,7 +169,7 @@ def convex_hull(P,errtol=1e-12):
             if (right_anchor.x-left_anchor.x)*res<-abs(errtol) and not tri.point_triangle_intersect(p,includeboundary=False):
                 exterior.append(p)    
     
-    #Fully constructing the lower convex hull iteratively
+    #Fully constructing the lower convex hull iteratively.
     counter=0
     while len(exterior)>0 and counter<N:
         for i in range(len(lower_hull)):
@@ -184,7 +184,7 @@ def convex_hull(P,errtol=1e-12):
                         farthest_anchor=p
                         height=res2
                 
-                #If there exists a point outside the convex hull, change the hull to include it
+                #If there exists a point outside the convex hull, change the hull to include it.
                 if height<-abs(errtol) or not farthest_anchor.is_point(lower_hull[i].points[0]):
                     e1=edge(lower_hull[i].points[0],farthest_anchor)
                     e2=edge(farthest_anchor,lower_hull[i].points[1])
@@ -203,7 +203,7 @@ def convex_hull(P,errtol=1e-12):
     return upper_hull+lower_hull
 
 def scan_triangulate(P,errtol=1e-12):
-    #Scan triangulation algorithm that triangulates points by simply connecting them haphazardly
+    #This method executes the scan triangulation algorithm that triangulates points by simply connecting them haphazardly.
     N=len(P)
     P.sort(key=lambda p:p.x)
     E=[]
@@ -232,7 +232,7 @@ def scan_triangulate(P,errtol=1e-12):
                 E[i].index=i
             return P,E,T
     
-    #Makes the first triangle
+    #Makes the first triangle.
     startindex=-1
     for i in range(2,N):
         t0=triangle(P[0],P[1],P[i])
@@ -263,17 +263,17 @@ def scan_triangulate(P,errtol=1e-12):
         point_index=3
         edge_index=3
         tri_index=1
-        #Adds more triangles to the triangulation whenever possible
+        #Adds more triangles to the triangulation whenever possible.
         for i in range(2,N):
             if i!=startindex:
-                #Every point is added incrementally to the triangulation
+                #Every point is added incrementally to the triangulation.
                 P[i].index=point_index
                 point_index+=1
                 newE=[]
                 newEbool=[]
                 for e in E:
                     if not e.enclosed:
-                        #An edge is made to the added point and tested to be unique and not crossing any other edge   
+                        #An edge is made to the added point and tested to be unique and not crossing any other edge.   
                         e1=edge(e.points[0],P[i])
                         match1bool=False
                         for j in range(len(newE)):
@@ -285,7 +285,7 @@ def scan_triangulate(P,errtol=1e-12):
                         if not match1bool:
                             e1bool=any([elem.edge_edge_intersect(e1,includeboundary=False) for elem in E])
                         
-                        #An edge is made to the added point and tested to be uniue and not crossing any other edge
+                        #An edge is made to the added point and tested to be uniue and not crossing any other edge.
                         e2=edge(e.points[1],P[i])
                         match2bool=False
                         for j in range(len(newE)):
@@ -297,7 +297,7 @@ def scan_triangulate(P,errtol=1e-12):
                         if not match2bool:
                             e2bool=any([elem.edge_edge_intersect(e2,includeboundary=False) for elem in E])
                         
-                        #If both edges are viable, a new triangle is made
+                        #If both edges are viable, a new triangle is made.
                         if not e1bool and not e2bool:
                             t=triangle(e.points[0],e.points[1],P[i])
                             t.edges=[e,e1,e2]
@@ -327,12 +327,15 @@ def scan_triangulate(P,errtol=1e-12):
     return P,E,T
 
 def delaunize(P,E,T,errtol=1e-12):
+    #This method takes a triangulation and executes the Lawson Flip algorithm on it to make the triangulation Delaunay.
     delaunaybool=False
     counter=0
     N=len(E)
     while not delaunaybool and counter<N*(N-1)/2+1:
+        #While the triangulation it not yet Delaunay...
         delaunaybool=True
         for e in E:
+            #...the algorithm finds an edge that is part of two triangles, and sees if the two enclosing triangles need to be flipped.
             if e.enclosed:
                 p1=e.triangles[0].points[0]
                 if p1 in e.points:
@@ -346,6 +349,8 @@ def delaunize(P,E,T,errtol=1e-12):
                     if p2 in e.points:
                         p2=e.triangles[1].points[2]
                 
+                #If the two triangles need to be Lawson flipped, the method reworks the triangulation so that the infastructure is maintained
+                #and the two triangles are now flipped (and therefore are Delaunay).
                 if e.triangles[0].inCircumcircle(p2):
                     if all([abs(edge(p1,e.points[i]).cross(edge(p2,e.points[i])))>abs(errtol) for i in range(2)]):
                         t1=e.triangles[0]
@@ -391,120 +396,121 @@ def delaunize(P,E,T,errtol=1e-12):
             counter+=1
             
 def _insert_Vertex_Delaunay_(point,P,E,T):
-    polyedges=[]
-    staredges=[]
-    constraintpolypoints=[]
-    for i in range(len(T)-1,-1,-1):
-        if T[i].inCircumcircle(point,includeboundary=True):
-            if T[i].point_triangle_intersect(point):
-                for j in range(len(T[i].edges)):
-                    if T[i].edges[j].point_edge_intersect(point,includeboundary=False):
-                        if T[i].edges[j].constraint:
-                            constraintpolypoints+=T[i].edges[j].points
-                        break
-                for e in T[i].edges:
-                    if e not in polyedges:
-                        polyedges.append(e)
-                for p in T[i].points:
-                    starE=edge(point,p)
-                    if all([not starE.is_edge(elem) for elem in staredges]):
-                        staredges.append(starE)
-                
-                for p in T[i].points:
-                    p.triangles.remove(T[i])
-                for e in T[i].edges:
-                    e.triangles.remove(T[i])
-                del T[i]
-            else:
-                intersectbool=False
-                for j,e in enumerate(T[i].edges):
-                    for p in T[i].points:
-                        if not p.is_point(e.points[0]) and not p.is_point(e.points[1]):
-                            starE=edge(point,p)
-                            if starE.edge_edge_intersect(e,includeboundary=False):
-                                #if all([not starE.edge_edge_intersect(E[k],includeboundary=False) for k in constraintIndex]):
-                                if all([not starE.edge_edge_intersect(elem,includeboundary=False) for elem in E if elem.constraint]):
-                                    for k in range(j):
-                                        if T[i].edges[k] not in polyedges:
-                                            polyedges.append(T[i].edges[k])
-                                    for k in range(j+1,3):
-                                        if T[i].edges[k] not in polyedges:
-                                            polyedges.append(T[i].edges[k])
-                                    for elemP in T[i].points:    
-                                        starE=edge(point,elemP)
-                                        if all([not starE.is_edge(elem) for elem in staredges]):
-                                            staredges.append(starE)
-                                    intersectbool=True
-                                    for elemP in T[i].points:
-                                        elemP.triangles.remove(T[i])
-                                    for elemE in T[i].edges:
-                                        elemE.triangles.remove(T[i])
-                                    del T[i]
-                            break
-                    if intersectbool:
-                        break
-                    
-    for i in range(len(polyedges)-1,-1,-1):
-        if any([polyedges[i].edge_edge_intersect(starE,includeboundary=False) for starE in staredges]):
-            polyedges[i].points[0].edges.remove(polyedges[i])
-            polyedges[i].points[1].edges.remove(polyedges[i])
-            E.remove(polyedges[i])
-            del polyedges[i]
-            #indexE=E.index(polyedges[i])
-            #del polyedges[i]
-            #del E[indexE]
-            #for j in range(len(constraintIndex)-1,-1,-1):
-            #    if constraintIndex[j]>indexE:
-            #        constraintIndex[j]-=1
-            #    elif constraintIndex[j]==indexE:
-            #        del constraintIndex[j]
-    
-    for e in polyedges:
-        e1=edge(e.points[0],point)
-        e2=edge(e.points[1],point)
-        
-        t=triangle(e.points[0],e.points[1],point)
-        t.edges=[e]
-        matchbool=False
-        for elem in E:
-            if e1.is_edge(elem):
-                matchbool=True
-                t.edges.append(elem)
-                break
-        if not matchbool:
-            if e.points[0] in constraintpolypoints:
-                e1.constraint=True
-                #constraintIndex.append(len(E))
-            E.append(e1)
-            t.edges.append(e1)
-            e1.update()
-            e1.enclosed=True
-        matchbool=False
-        for elem in E:
-            if e2.is_edge(elem):
-                matchbool=True
-                t.edges.append(elem)
-                break
-        if not matchbool:
-            if e.points[1] in constraintpolypoints:
-                e2.constraint=True
-                #constraintIndex.append(len(E))
-            E.append(e2)
-            t.edges.append(e2)
-            e2.update()
-            e2.enclosed=True
-        t.update()
-        T.append(t)
-        
+    #This method inserts a vertex into already Delaunay triangulation so that the triangulation remains Delaunay.
+    #The method first checks if the point has not been added before.
     matchbool=False
     for p in P:
         if p.is_point(point):
             matchbool=True
             break
     if not matchbool:
+        polyedges=[]
+        staredges=[]
+        constraintpolypoints=[]
+        #The method sees if the new point would fall into the circumcircle of any of the already-existing triangles.
+        #The method then deletes those triangles.
+        for i in range(len(T)-1,-1,-1):
+            if T[i].inCircumcircle(point,includeboundary=True):
+                #Distinction is made whether the new point falls inside a triangle (in which case constraint edges are mostly ignored)...
+                if T[i].point_triangle_intersect(point):
+                    for j in range(len(T[i].edges)):
+                        if T[i].edges[j].point_edge_intersect(point,includeboundary=False):
+                            if T[i].edges[j].constraint:
+                                constraintpolypoints+=T[i].edges[j].points
+                            break
+                    for e in T[i].edges:
+                        if e not in polyedges:
+                            polyedges.append(e)
+                    for p in T[i].points:
+                        starE=edge(point,p)
+                        if all([not starE.is_edge(elem) for elem in staredges]):
+                            staredges.append(starE)
+
+                    for p in T[i].points:
+                        p.triangles.remove(T[i])
+                    for e in T[i].edges:
+                        e.triangles.remove(T[i])
+                    del T[i]
+                else:
+                    #...or falls outside of a triangle, in which case the triangle is only deleted if the new edges that will be made by the insertion of the new point
+                    #do not intersect any constrained edges.
+                    intersectbool=False
+                    for j,e in enumerate(T[i].edges):
+                        for p in T[i].points:
+                            if not p.is_point(e.points[0]) and not p.is_point(e.points[1]):
+                                starE=edge(point,p)
+                                if starE.edge_edge_intersect(e,includeboundary=False):
+                                    if all([not starE.edge_edge_intersect(elem,includeboundary=False) for elem in E if elem.constraint]):
+                                        for k in range(j):
+                                            if T[i].edges[k] not in polyedges:
+                                                polyedges.append(T[i].edges[k])
+                                        for k in range(j+1,3):
+                                            if T[i].edges[k] not in polyedges:
+                                                polyedges.append(T[i].edges[k])
+                                        for elemP in T[i].points:    
+                                            starE=edge(point,elemP)
+                                            if all([not starE.is_edge(elem) for elem in staredges]):
+                                                staredges.append(starE)
+                                        intersectbool=True
+                                        for elemP in T[i].points:
+                                            elemP.triangles.remove(T[i])
+                                        for elemE in T[i].edges:
+                                            elemE.triangles.remove(T[i])
+                                        del T[i]
+                                break
+                        if intersectbool:
+                            break
+
+        #When all the necessary triangles have been removed and after some structural clean up...
+        for i in range(len(polyedges)-1,-1,-1):
+            if any([polyedges[i].edge_edge_intersect(starE,includeboundary=False) for starE in staredges]):
+                polyedges[i].points[0].edges.remove(polyedges[i])
+                polyedges[i].points[1].edges.remove(polyedges[i])
+                E.remove(polyedges[i])
+                del polyedges[i]
+
+        #... a new set of edges is made that connects the new point
+        #to the rest of the triangulation and a new set of triangles is added 
+        #to the triangulation over the framework of the new connective edges.
+        for e in polyedges:
+            e1=edge(e.points[0],point)
+            e2=edge(e.points[1],point)
+
+            t=triangle(e.points[0],e.points[1],point)
+            t.edges=[e]
+            matchbool=False
+            for elem in E:
+                if e1.is_edge(elem):
+                    matchbool=True
+                    t.edges.append(elem)
+                    break
+            if not matchbool:
+                if e.points[0] in constraintpolypoints:
+                    e1.constraint=True
+                E.append(e1)
+                t.edges.append(e1)
+                e1.update()
+                e1.enclosed=True
+            matchbool=False
+            for elem in E:
+                if e2.is_edge(elem):
+                    matchbool=True
+                    t.edges.append(elem)
+                    break
+            if not matchbool:
+                if e.points[1] in constraintpolypoints:
+                    e2.constraint=True
+                E.append(e2)
+                t.edges.append(e2)
+                e2.update()
+                e2.enclosed=True
+            t.update()
+            T.append(t)
+
         P.append(point)
 
 def _patch_(P,E,T,constr,anchor,cavityPoints,involvedE):
+    #This method patches an pseudo-Delaunay triangulation over a hole left by removing all the triangles that intersect a constrained edge.
     while not anchor.points[1].is_point(constr.points[0]):
         paths=[]
         for e in anchor.points[1].edges:
@@ -616,6 +622,8 @@ def _patch_(P,E,T,constr,anchor,cavityPoints,involvedE):
                         break
 
 def _constrained_(P,E,T,constraints):    
+    #For each constrained edge, this method removes all the triangles from a triangulation that intersect the constrained edge,
+    #then patches the hole up with pseudo-Delaunay triangles using the method _patch_.
     for constr in constraints:
         for i in range(len(T)-1,-1,-1):
             if T[i].edge_triangle_intersect(constr,includeboundary=False) or any([elem.edge_edge_intersect(constr,includeboundary=False) for elem in T[i].edges]):
@@ -627,23 +635,14 @@ def _constrained_(P,E,T,constraints):
                             elem.points[0].edges.remove(elem)
                             elem.points[1].edges.remove(elem)
                             E.remove(elem)
-                            #indexE=E.index(elem)
-                            #del E[indexE]
-                            #for j in range(len(constraintIndex)):
-                            #    if constraintIndex[j]>indexE:
-                            #        constraintIndex[j]-=1
-                            #    elif constraintIndex[j]==indexE:
-                            #        del constraintIndex[j]
-                        except:
+                        except Exception:
                             pass
                     else:
                         elem.triangles.remove(T[i])
                         elem.enclosed=False
                 del T[i]
         
-        #constr.enclosed=True
         constr.update()
-        #constraintIndex.append(len(E))
         E.append(constr)
         
         involvedE=[constr]
@@ -663,7 +662,8 @@ def _constrained_(P,E,T,constraints):
             else:
                 e.enclosed=True
 
-def delaunay_triangulate(P,constraints=[]):    
+def delaunay_triangulate(P,constraints=[]):
+    #This method uses the Bowyer-Watson Algorithm to iteratively insert points into an already Delaunay triangulation.
     maxX=P[0].x
     minX=P[0].x
     maxY=P[0].y
@@ -767,6 +767,8 @@ def delaunay_triangulate(P,constraints=[]):
     return P,E,T
                 
 def killvirus(point,P,E,T):
+    #This method deletes all adjacent triangles within a certain area, starting its way at a certain point and moving its way outward.
+    #Constrained edges are immune and can be used to cordon off certain sections of the triangulation to be deleted.
     infectedT=[]
     for t in T:
         if t.point_triangle_intersect(point):
@@ -800,6 +802,8 @@ def killvirus(point,P,E,T):
                     infectedP[j].kill()
                 
 def delaunay_refine(P,E,T,theta=20,areatol=None,errtol=1e-12):
+    #This method implements the Ruppert Delaunay Refinement algorithm to retriangulate a space to contain triangles
+    #that are much more useful for numerical approximation and calculation.
     theta*=math.pi/180
     count=0
     while theta<0 and count<100:
