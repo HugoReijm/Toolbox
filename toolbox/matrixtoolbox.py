@@ -65,6 +65,24 @@ def plotMatrix(M,tol=1e-6,plotaxis=None,colormap=None,color="black",alpha=1.0):
             plotaxis.scatter(mX,mY,color=color,alpha=alpha,s=150/math.sqrt(len(mX)))
     plt.show()    
 
+def grad(f,vect,h=1e-6,args=[],kwargs={}):
+    from toolbox.generaltoolbox import differentiate
+    if not isinstance(vect,np.ndarray):
+        vect=np.array(vect)
+    if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
+        dim=1
+    elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
+        dim=len(vect)
+    else:
+        print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
+        return []
+    res=f(vect,*args,**kwargs)
+    if ("int" in type(res).__name__) or ("float" in type(res).__name__):
+        return np.array([differentiate(f,vect,variableDim=i) for i in range(dim)])
+    else:
+        print("Error: Function output is of incompatible type %s"%type(res).__name__)
+        return []
+    
 def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
     #This method approximates the Jacobian of a multidimensional function f with
     #multidimensional input vector vect. Variable h is the step size used to
