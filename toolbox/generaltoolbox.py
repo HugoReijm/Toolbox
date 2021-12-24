@@ -1,13 +1,14 @@
 import math
 import numpy as np
 import numpy.linalg as npla
-from itertools import product
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d import art3d
 import matplotlib.colors as pltcolors
 from matplotlib.collections import LineCollection
-        
+import warnings
+warnings.filterwarnings("error")
+
 graphsize=9
 font = {"family": "serif",
     "color": "black",
@@ -431,60 +432,439 @@ def interpolate(sol,t,N):
                 break
     return solprime,tprime
 
-def newtonRaphson(f,start,stop,delta,args=[],kwargs={},errtol=1e-3,neighborhoodRange=1e-2,maxlevel=50,speed=1):
-    #This method uses the multidimensional Newton-Raphson method to approximate
-    #the zeros of function f between lower bound vector start and upper bound vector
-    #stop. The method divides the search space into equally-sized spaces whose
-    #dimensions are given in vector delta. The method will search in each subspace,
-    #iterating a maximum of maxLevel times and each solution found must reach
-    #the errtol given. Solutions too close to each other are filtered out,
-    #determined by the neighborhoodRange variable. Finally, the speed variable allows
-    #for potentially faster convergence (if speed>1) or more steady convergence
-    #(if speed<1)
-    from toolbox.matrixtoolbox import jacobian,lu
-    try:
-        dim=len(start)
-    except TypeError:
-        dim=1
-    try:
-        fdim=len(f(start,*args,**kwargs))
-    except TypeError:
-        fdim=1
+def spline(sol,t_array):
+    #This method constructs a spline function that smoothly interpolates
+    #between a number of inputted points. The variable t_array is the 
+    #collection of temporal independent variables, while the variable sol
+    #is the collection of corresponding dependent vectors.
+    if len(t_array)==len(sol):
+        N=len(t_array)
+        a=np.asarray(sol)
+        h=np.array([t_array[i+1]-t_array[i] for i in range(N-1)])
+        alpha=np.array([3*(a[i+2]-a[i+1])/h[i+1]-3*(a[i+1]-a[i])/h[i] for i in range(N-2)])
+        l,mu,z=np.ones(N),np.zeros(N),np.zeros(N)
+        for i in range(1,N-1):
+            l[i]=2*h[i]+(2-mu[i-1])*h[i-1]
+            mu[i]=h[i]/l[i]
+            z[i]=(alpha[i-1]-h[i-1]*z[i-1])/l[i]
+        b=np.zeros(N-1)
+        c=np.zeros(N)
+        d=np.zeros(N)
+        for i in range(N-2,-1,-1):
+            c[i]=z[i]-mu[i]*c[i+1]
+            b[i]=(a[i+1]-a[i])/h[i]-h[i]*(c[i+1]+2*c[i])/3
+            d[i]=(c[i+1]-c[i])/(3*h[i])
         
-    if speed<=0:
-        speed=1
-    N=[max(round((stop[i]-start[i])/delta[i]),1) for i in range(dim)]
-    res=[]
-    grid=[[start[i]+delta[i]/2+j*(stop[i]-start[i])/N[i] for j in range(N[i])] for i in range(dim)]
-    vectarray=[np.array(elem) for elem in product(*grid)]
-    
-    for v in vectarray:
-        vect=v.copy()
-        diff=[]
-        count=0
-        while count<maxlevel and sum([f(vect,*args,**kwargs)[j]**2 for j in range(fdim)])>errtol**2:
-            A=jacobian(f,vect,args=args,kwargs=kwargs)
-            inv=lu(A,-np.array(f(vect,*args,**kwargs)))
-            if len(inv)>0:
-                diff=speed*inv
-                vect=vect+diff
-                count+=1
+        def spline_func(t):
+            for i in range(N):
+                if t_array[i]<=t<=t_array[i+1]:
+                    return a[i]+b[i]*(t-t_array[i])+c[i]*(t-t_array[i])**2+d[i]*(t-t_array[i])**3
+        return spline_func
+    else:
+        print("Error: inputted vectors do not have matching lengths")
+        print("Length of sol: %i"%len(sol))
+        print("Length of sol: %i"%len(t_array))
+        return None
+
+def line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,inform=False):
+    #This method performs a line search of a function f:R->R to find the
+    #minimum of f between variables start and stop using the Brent minimization
+    #method, which itself is a hybrid of Golden Section Search and Jarrat
+    #iteration. It is guaranteed to converge, and usually does super-linearly.
+    #Variable errtol sets the minimum distance between start and stop before an
+    #approximate of the minimum is made. Variable maxlevel determines the
+    #maximum number of iterations the method can perform before it is forced to
+    #end. If variable inform is set to true, the method relays information on 
+    #it's converge behavior to the user. 
+    if stop<start:
+        temp=start
+        start=stop
+        stop=temp
+    phi=(1+math.sqrt(5))/2
+    x=stop-(phi-1)*(stop-start)
+    fx=f(x,*args,**kwargs)
+    v=x
+    w=x
+    fv=fx
+    fw=fx
+    d=0
+    e=0
+    m=(start+stop)/2
+    count=1
+    if inform:
+        F=[f(m,*args,**kwargs)]
+    while stop-start>errtol and count<maxlevel:
+        r=(x-w)*(fx-fv)
+        tq=(x-v)*(fx-fw)
+        tp=(x-v)*tq-(x-w)*r
+        tq2=2*(tq-r)
+        if tq2>0:
+            p=-tp
+            q=tq2
+        else:
+            p=tp
+            q=-tq2
+        safe=(q!=0.0)
+        if safe:
+            try:
+                deltax=p/q
+            except Exception:
+                deltax=0.0
+        else:
+            deltax=0.0
+        parabolic=(safe and (start<x+deltax<stop) and (abs(deltax)<abs(e)/2))
+        if parabolic:
+            e=d
+            d=deltax
+        else:
+            if x<m:
+                e=stop-x
             else:
-                if npla.norm(f(vect,*args,**kwargs))>1e-2:
-                    count=maxlevel
-                break
+                e=start-x
+            d=(2-phi)*e
+        u=x+d
+        fu=f(u,*args,**kwargs)
+        if fu<=fx:
+            if u<x:
+                stop=x
+            else:
+                start=x
+            v=w
+            w=x
+            x=u
+            fv=fw
+            fw=fx
+            fx=fu
+        else:
+            if u<x:
+                start=u
+            else:
+                stop=u
+            if fu<=fw or w==x:
+                v=w
+                w=u
+                fv=fw
+                fw=fu
+            elif fu<=fv or v==x or v==w:
+                v=u
+                fv=fu
+        m=(start+stop)/2
+        if inform:
+            F.append(f(m,*args,**kwargs))
+        count+=1
+    if stop-start>errtol:
+        if inform:
+            print("Unable to find minimum after %i iterations"%count)
+        return None
+    else:    
+        if inform:
+            print("Minimum found after %i iterations"%count)
+            print("f(x) = %0.6f"%F[-1])
+            ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax.plot([i for i in range(len(F))],F)
+            ax.set_title("Function Value per Iteration",fontdict=font)
+            ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax.set_ylabel("Function Value",fontsize=16)
+            ax.xaxis.set_tick_params(labelsize=16)
+            ax.yaxis.set_tick_params(labelsize=16)
+        return m
+
+def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
+    #This method performs a Newton-Raphson approximation of the root of the 
+    #function f:R->R, using scalar x0 as it's initial guess.
+    #Variable errtol sets the minimum norm that the function can take on before
+    #an approximate of the root is made. Variable maxlevel determines the
+    #maximum number of iterations the method can perform before it is forced to
+    #end. If variable mode is set to newton_raphson, the inverse Jacobian is
+    #computed every iteration. If variable mode is set to broyden (default),
+    #the inverse jacobian is approximated using the Broyden method. If variable
+    #adapt is set to True, the method uses the weak Wolfe conditions to damp
+    #(or accelerate) the Newton-Raphson iteration to coerce global converge to
+    #a minimum or root. If variable inform is set to true, the method relays
+    #information on it's converge behavior to the user. 
+    
+    f0=f(x0,*args,**kwargs)
+    nf0=abs(f0)
+    if ("int" in type(x0).__name__) or ("float" in type(x0).__name__):
+        if ("int" not in type(f0).__name__) and ("float" not in type(f0).__name__):
+            if inform:
+                print("Error: unable to apply Newton-Raphson iteration to this function")
+            return None
+    else:
+        if inform:
+            print("Error: unable to apply Newton-Raphson iteration to this function")
+        return None
         
-        skip=False
-        for r in res:
-            if any([abs(vect[k]-r[k])<neighborhoodRange*np.prod(delta) for k in range(dim)]):
-                skip=True
-                r=(vect+r)/2.0
-                break
-        if not skip:
-            if 0<=count<maxlevel:
-                if all([start[i]<=vect[i]<=stop[i] for i in range(dim)]):
-                    res.append(vect)
-    return res
+    c1=1e-4
+    c2=0.9
+    try:
+        dfinv=1/differentiate(f,x0,args=args,kwargs=kwargs)
+    except Exception:
+        dfinv=0
+    x1=x0-dfinv*f0
+    f1=f(x1,*args,**kwargs)
+    nf1=abs(f1)
+    alpha=1.0
+    
+    mode=mode.lower()
+    if "broyden" in mode:
+        mode="broyden"
+    else:
+        mode="newton_raphson"
+    
+    newt_count=1
+    if inform:
+        F=[nf0,nf1]
+    
+    while nf1>errtol and abs(x1-x0)>errtol and newt_count<maxlevel:
+        if "broyden" in mode:
+            try:
+                dfinv=(x1-x0)/(f1-f0)
+            except Exception:
+                try:
+                    dfinv=1/differentiate(f,x1,args=args,kwargs=kwargs)
+                except Exception:
+                    dfinv=0
+        else:
+            try:
+                dfinv=1/differentiate(f,x1,args=args,kwargs=kwargs)
+            except Exception:
+                try:
+                    dfinv=(x1-x0)/(f1-f0)
+                except Exception:
+                    dfinv=0
+        delta_x=-dfinv*f1
+        x0=x1
+        f0=f1
+        nf0=nf1
+        
+        x1=x1+alpha*delta_x
+        f1=f(x1,*args,**kwargs)
+        nf1=abs(f1)
+        if adapt and abs(delta_x)>0:
+            nf=lambda x:abs(f(x,*args,**kwargs))
+            grad_nf0=differentiate(nf,x0)
+            a=0
+            b=np.inf
+            bisect_count=0
+            wolfe_flag=False
+            double_flag=True
+            while not wolfe_flag and bisect_count<100:
+                if nf(x0+alpha*delta_x)>nf0+c1*alpha*delta_x*grad_nf0:
+                    b=alpha
+                    alpha=0.5*(a+b)
+                    double_flag=False
+                elif delta_x*differentiate(nf,x0+alpha*delta_x)<c2*delta_x*grad_nf0:
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                    double_flag=False
+                else:
+                    if double_flag and alpha<=1:
+                        alpha*=2
+                    else:
+                        wolfe_flag=True
+                bisect_count+=1
+            x1=x0+alpha*delta_x
+            f1=f(x1,*args,**kwargs)
+            nf1=abs(f1)
+        if inform:
+            F.append(nf1)
+        newt_count+=1
+
+    if nf1>errtol and abs(x1-x0)>errtol:
+        if inform:
+            print("Unable to find extremum or minimum after %i iterations"%newt_count)
+            ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax.plot([i for i in range(len(F))],F)
+            ax.set_title("Function Norm per Iteration",fontdict=font)
+            ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax.set_ylabel("Function Norm",fontsize=16)
+            ax.xaxis.set_tick_params(labelsize=16)
+            ax.yaxis.set_tick_params(labelsize=16)
+        return None
+    else:
+        if inform:
+            if nf1<=errtol:
+                print("Root found after %i iterations"%newt_count)
+                print("|f(x)| = %0.6f"%nf1)
+            else:
+                print("Minumum found after %i iterations"%newt_count)
+                print("|f(x)| = %0.6f"%nf1)
+            ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax.plot([i for i in range(len(F))],F)
+            ax.set_title("Function Norm per Iteration",fontdict=font)
+            ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax.set_ylabel("Function Norm",fontsize=16)
+            ax.xaxis.set_tick_params(labelsize=16)
+            ax.yaxis.set_tick_params(labelsize=16)
+        return x1
+
+def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
+    #This method performs a Newton-Raphson approximation of the root of the 
+    #function f:R^n->R^n, using vector x0 as it's initial guess.
+    #Variable errtol sets the minimum norm that the function can take on before
+    #an approximate of the root is made. Variable maxlevel determines the
+    #maximum number of iterations the method can perform before it is forced to
+    #end. If variable mode is set to newton_raphson, the inverse Jacobian is
+    #computed every iteration. If variable mode is set to good_broyden, the
+    #inverse jacobian is approximated using the good Broyden method. If
+    #variable mode is set to bad_broyden (default), the inverse jacobian is 
+    #approximated using the bad Broyden method. If variable adapt is set to
+    #True, the method uses the weak Wolfe conditions to damp (or accelerate)
+    #the Newton-Raphson iteration to coerce global converge to a minimum or root.
+    #If variable inform is set to true, the method relays information on 
+    #it's converge behavior to the user. 
+    
+    x0=np.asarray(x0)
+    f0=f(x0,*args,**kwargs)
+    nf0=npla.norm(f0)
+    
+    if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
+        if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
+            if len(x0)==len(f0):
+                dim=len(x0)
+                from toolbox.matrixtoolbox import jacobian,grad
+            else:
+                if inform:
+                    print("Error: unable to apply Newton-Raphson iteration to f:R^%i->R^%i"%(len(x0),len(f0)))
+                return None
+        else:
+            if inform:
+                print("Error: unable to apply Newton-Raphson iteration to this function")
+            return None
+    else:
+        if inform:
+            print("Error: unable to apply Newton-Raphson iteration to this function")
+        return None
+    
+    c1=1e-4
+    c2=0.9
+    try:
+        dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+    except Exception:
+        dfinv=np.zeros(dim,dim)
+    x1=x0-np.dot(dfinv,f0)
+    f1=f(x1,*args,**kwargs)
+    nf1=npla.norm(f1)
+    alpha=1.0
+    
+    mode=mode.lower()
+    if "broyden" in mode:
+        if "g" in mode:
+            mode="good_broyden"
+        else:
+            mode="bad_broyden"
+    else:
+        mode="newton_raphson"
+    
+    newt_count=1
+    if inform:
+        F=[nf0,nf1]
+    
+    while nf1>errtol and npla.norm(x1-x0)>errtol and newt_count<maxlevel:
+        if mode=="bad_broyden":
+            try:
+                dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/sum((f1-f0)**2),f1-f0)
+            except Exception:
+                try:
+                    dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/np.dot(x1-x0,np.dot(dfinv,f1-f0)),np.dot(x1-x0,dfinv))
+                except Exception:
+                    try:
+                        dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+                    except Exception:
+                        dfinv=np.zeros((dim,dim))
+        elif mode=="good_broyden":
+            try:
+                dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/np.dot(x1-x0,np.dot(dfinv,f1-f0)),np.dot(x1-x0,dfinv))
+            except Exception:
+                try:
+                    dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/sum((f1-f0)**2),f1-f0)
+                except Exception:
+                    try:
+                        dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+                    except Exception:
+                        dfinv=np.zeros((dim,dim))
+        else:
+            try:
+                dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+            except Exception:
+                try:
+                    dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/sum((f1-f0)**2),f1-f0)
+                except Exception:
+                    try:
+                        dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/np.dot(x1-x0,np.dot(dfinv,f1-f0)),np.dot(x1-x0,dfinv))
+                    except Exception:
+                        dfinv=np.zeros((dim,dim))
+
+        delta_x=-np.dot(dfinv,f1)
+        x0=x1.copy()
+        f0=f1.copy()
+        nf0=nf1.copy()
+        x1=x1+alpha*delta_x
+        f1=f(x1,*args,**kwargs)
+        nf1=npla.norm(f1)
+        if adapt and npla.norm(delta_x)>0:
+            nf=lambda x:npla.norm(f(x,*args,**kwargs))
+            grad_nf0=grad(nf,x0)
+            a=0
+            b=np.inf
+            bisect_count=0
+            wolfe_flag=False
+            double_flag=True
+            while not wolfe_flag and bisect_count<100:
+                if nf(x0+alpha*delta_x)>nf0+c1*alpha*np.dot(delta_x,grad_nf0):
+                    b=alpha
+                    alpha=0.5*(a+b)
+                    double_flag=False
+                elif np.dot(delta_x,grad(nf,x0+alpha*delta_x))<c2*np.dot(delta_x,grad_nf0):
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                    double_flag=False
+                else:
+                    if double_flag and alpha<=1:
+                        alpha*=2
+                    else:
+                        wolfe_flag=True
+                bisect_count+=1
+            x1=x0+alpha*delta_x
+            f1=f(x1,*args,**kwargs)
+            nf1=npla.norm(f1)
+        if inform:
+            F.append(nf1)
+        newt_count+=1
+    if nf1>errtol and npla.norm(x1-x0)>errtol:
+        if inform:
+            print("Unable to find extremum or minimum after %i iterations"%newt_count)
+            ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax.plot([i for i in range(len(F))],F)
+            ax.set_title("Function Norm per Iteration",fontdict=font)
+            ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax.set_ylabel("Function Norm",fontsize=16)
+            ax.xaxis.set_tick_params(labelsize=16)
+            ax.yaxis.set_tick_params(labelsize=16)
+        return None
+    else:
+        if inform:
+            if nf1<=errtol:
+                print("Root found after %i iterations"%newt_count)
+                print("||f(x)||_2 = %0.6f"%nf1)
+            else:
+                print("Minumum found after %i iterations"%newt_count)
+                print("||f(x)||_2 = %0.6f"%nf1)
+            ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax.plot([i for i in range(len(F))],F)
+            ax.set_title("Function Norm per Iteration",fontdict=font)
+            ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax.set_ylabel("Function Norm",fontsize=16)
+            ax.xaxis.set_tick_params(labelsize=16)
+            ax.yaxis.set_tick_params(labelsize=16)
+        return x1
 
 def polyRegression(X,Y,dim=1,errtol=1e-6,plotbool=True,plotaxis=None,color="black",alpha=1.0):
     if dim>len(X):
