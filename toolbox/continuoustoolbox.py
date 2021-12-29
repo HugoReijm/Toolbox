@@ -157,7 +157,7 @@ def lyapunovSpectrum(sol,t,f,args=[],kwargs={},dist=1e-6,K=1,easy=True,plotbool=
             plotaxis.xaxis.set_tick_params(labelsize=16)
             plotaxis.yaxis.set_tick_params(labelsize=16)
             showbool=True
-        colors=gtb.colors(K)
+        colors=ptb.colors(K)
         for i in range(K):
             plotaxis.plot([j for j in range(counts[i])],plotLambda[i],color=colors[i])
         if showbool:
