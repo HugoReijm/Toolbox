@@ -5,6 +5,7 @@ import scipy.linalg as spla
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import toolbox.generaltoolbox as gtb
+import toolbox.plottoolbox as ptb
 import toolbox.matrixtoolbox as mtb
 
 def generate(f,vect0,N,args=[],kwargs={}):
@@ -169,7 +170,7 @@ def lyapunovSpectrum(sol,f,args=[],kwargs={},dist=1e-6,K=1,plotbool=False,plotax
             plotaxis.xaxis.set_tick_params(labelsize=16)
             plotaxis.yaxis.set_tick_params(labelsize=16)
             showbool=True
-        color=gtb.colors(K)
+        color=ptb.colors(K)
         for i in range(K):
             plotaxis.plot([j for j in range(counts[i])],plotLambda[i],color=color[i])
         if showbool:
