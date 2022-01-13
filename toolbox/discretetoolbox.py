@@ -162,11 +162,11 @@ def lyapunovSpectrum(sol,f,args=[],kwargs={},dist=1e-6,K=1,plotbool=False,plotax
             if K==1:
                 plotaxis.set_title("Maximal Lyapunov Exponent Convergence",fontdict=font)
                 plotaxis.set_xlabel("Iterations",fontsize=16,rotation=0)
-                plotaxis.set_ylabel("$\mathbf{\lambda_{max}}$",fontsize=16,rotation=0)
+                plotaxis.set_ylabel("$\\mathbf{\\lambda_{max}}$",fontsize=16,rotation=0)
             else:
                 plotaxis.set_title("Lyapunov Spectrum Convergence",fontdict=font)
                 plotaxis.set_xlabel("Iterations",fontsize=16,rotation=0)
-                plotaxis.set_ylabel("$\mathbf{\lambda 's}$",fontsize=16,rotation=0)
+                plotaxis.set_ylabel("$\\mathbf{\\lambda 's}$",fontsize=16,rotation=0)
             plotaxis.xaxis.set_tick_params(labelsize=16)
             plotaxis.yaxis.set_tick_params(labelsize=16)
             showbool=True
