@@ -1174,6 +1174,116 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
             ax.yaxis.set_tick_params(labelsize=16)
         return x1
 
+def FFT(sol,inverse=False,min_factor=32):
+    #This method performs a 1D Fast Fourier Transform (of FFT) of the inputted 
+    #signal of size N. The FFT is the fast version for calculating the DFT,
+    #which is generally calculated through matrix-vector multiplication, an
+    #O(N^2) process. Instead, the FFT solves this in O(NlogN) time by splitting
+    #the problem into N1 smaller problems, each sub-problem containing 1/N1=N2
+    #of the total data. These sub-problems are then solved and recombined into
+    #one final solution.
+    #More specifically, this algorithm is divided into three steps. The first
+    #step reorders the inputted variable <sol> into subsections based on each
+    #element's modulo N2; this is done by function R.
+    #Next, function G applies the Fourier Transform to each of the subsections
+    #of <sol>. Notice that function G allows for recursion;
+    #variable <min_factor> determines how long each subsection must be before
+    #recursion halts and the applicable matrix-vector multiplications are
+    #calculated directly.
+    #Finally, function B reconnects all the subsections together to produce one
+    #final solution.
+    #Notice that this method also calculates the inverse FFT by setting
+    #variable <inverse> to True (default False).
+    N=len(sol)
+    min_factor=max(1,min(N,int(round(min_factor))))
+    def factors(N):
+        #This code tries to find radices as small as possible so that
+        #function B can be as fast as possible in its current set-up.
+        for i in range(2,int(math.sqrt(N))+1):
+            if N%i==0:
+                return i,int(N/i)
+        return 1,N
+        #This code tries to find a radix as close to sqrt(N) as possible.
+        #This can be beneficial for highly parrallelizable methods, but
+        #this particular implementation is not designed for that.
+        #for i in range(int(math.sqrt(N)),0,-1):
+        #    if N%i==0:
+        #        return i,int(N/i)
+        
+    
+    def R(sol,N,N1,N2):
+        sol_r=np.empty(N,dtype=np.complex)
+        for i in range(N1):
+            sol_r[i*N2:(i+1)*N2]=sol[i::N1]
+        return sol_r
+    
+    def F(N):
+        F_mat=np.empty((N,N),dtype=np.complex)
+        F_mat[0,:]=np.ones(N,dtype=np.complex)
+        if inverse:
+            for i in range(1,int(N/2)+1):
+                F_mat[i,i:N-i+1]=np.exp(2j*math.pi*i/N*np.arange(i,N-i+1))
+                F_mat[N-i:i-1:-1,N-i]=F_mat[i,i:N-i+1]
+        else:
+            for i in range(1,int(N/2)+1):
+                F_mat[i,i:N-i+1]=np.exp(-2j*math.pi*i/N*np.arange(i,N-i+1))
+                F_mat[N-i:i-1:-1,N-i]=F_mat[i,i:N-i+1]
+        for i in range(1,N):
+            F_mat[i,:i]=F_mat[:i,i]
+        return F_mat
+        
+    def G(sol,N,N1,N2):
+        if N2<=min_factor:
+            F_mat=F(N2)
+            for i in range(N1):
+                sol[i*N2:(i+1)*N2]=np.dot(F_mat,sol[i*N2:(i+1)*N2])
+            return sol
+        else:
+            N3,N4=factors(N2)
+            if N3>1:
+                for i in range(N1):            
+                    sol[i*N2:(i+1)*N2]=B(G(R(sol[i*N2:(i+1)*N2],N2,N3,N4),N2,N3,N4),N2,N3,N4)
+                return sol
+            else:
+                F_mat=F(N2)
+                for i in range(N1):
+                    sol[i*N2:(i+1)*N2]=np.dot(F_mat,sol[i*N2:(i+1)*N2])
+                return sol
+    
+    def D(N,N1,N2,i,j):
+        return np.exp(-2j*math.pi*j*(N2*i+np.arange(N2))/N)
+    
+    def B(sol,N,N1,N2):
+        #This code is usually faster for smaller radices, but usually
+        #much slower for larger radices.
+        sol_b=np.empty(N,dtype=np.complex)
+        for i in range(N1):
+            sol_b[i*N2:(i+1)*N2]=sol[:N2]+sum([sol[j*N2:(j+1)*N2]*D(N,N1,N2,i,j) for j in range(1,N1)])
+        return sol_b
+        
+        #This code is used for general radices. It is more consistent
+        #over the spectrum of possible radices, but is usually slower
+        #for smaller radices.
+        #sol_b=np.empty(N,dtype=np.complex)
+        #res1=F(N1)
+        #res2=-2j*math.pi/N*np.outer(np.arange(N1),np.arange(N2))
+        #if inverse:
+        #    res2*=-1    
+        #res2=np.exp(res2)
+        #sol_b[0]=sol[0]+np.sum(sol[N2:N:N2])
+        #for j in range(N2):
+        #    sol_b[j]=np.inner(sol[j:N:N2],res2[:,j])
+        #for i in range(1,N1):
+        #    sol_b[i*N2]=np.inner(sol[0:N:N2],res1[:,i])
+        #    for j in range(1,N2):
+        #        sol_b[j+i*N2]=np.inner(sol[j:N:N2],res1[:,i]*res2[:,j])
+        #return sol_b
+    
+    N1,N2=factors(N)
+    if inverse:
+        return B(G(R(sol,N,N1,N2),N,N1,N2),N,N1,N2)/N
+    return B(G(R(sol,N,N1,N2),N,N1,N2),N,N1,N2)
+
 def polyRegression(X,Y,dim=1,errtol=1e-6,plotbool=True,plotaxis=None,color="black",alpha=1.0):
     if dim>len(X):
         dim=len(X)-1
