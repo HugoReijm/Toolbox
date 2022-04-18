@@ -1,0 +1,82 @@
+import numpy as np
+
+def simplex(A,b,c,inform=False):
+    #This method solves the optimization problem
+    #"maximize c^Tx subject to Ax<=b and x>=0" using the Simplex Method,
+    #assuming the set of feasible solutions is convex. Variable <inform> allows
+    #for the user to see diagnostic data of the method.
+    
+    d=np.hstack((c,np.zeros(A.shape[0])))
+    E=np.hstack((A,np.identity(A.shape[0])))
+    r1=np.hstack((1,-d,0))
+    r2=np.hstack((np.zeros((A.shape[0],1)),E,np.array([b]).T))
+    S=np.vstack((r1,r2))
+    
+    iter_count=0
+    pivot=True
+    while pivot:
+        pivot_col=-1
+        max_cost=0
+        for j in range(1,S.shape[1]-1):
+            if S[0,j]<max_cost:
+                pivot_col=j
+                max_cost=S[0,j]
+                #break
+        if pivot_col==-1:
+            pivot=False
+            break
+        
+        pivot_row=-1
+        min_ratio=np.inf
+        for i in range(1,S.shape[0]):
+            if S[i,pivot_col]!=0:
+                res=S[i,-1]/S[i,pivot_col]
+                if 0<res<min_ratio:
+                    pivot_row=i
+                    min_ratio=res
+        if pivot_row==-1:
+            pivot=False
+            break
+        
+        if S[pivot_row,pivot_col]!=1.0:
+            S[pivot_row,:]=S[pivot_row,:]/S[pivot_row,pivot_col]
+            S[pivot_row,pivot_col]=1.0
+        
+        for i in range(S.shape[0]):
+            if i!=pivot_row and S[i,pivot_col]!=0:
+                S[i,:]=S[i,:]-S[pivot_row,:]*S[i,pivot_col]
+                S[i,pivot_col]=0.0
+        
+        iter_count+=1
+            
+    sol=np.zeros(S.shape[1]-2)
+    for j in range(1,S.shape[1]-1):
+        basis_bool=True
+        one_pos=-1
+        for i in range(1,S.shape[0]):
+            if S[i,j]!=0.0:
+                if S[i,j]!=1.0:
+                    basis_bool=False
+                    break
+                else:
+                    if one_pos!=-1:
+                        basis_bool=False
+                        break
+                    else:
+                        one_pos=i
+        if basis_bool and one_pos!=-1:
+            sol[j-1]=S[one_pos,-1]
+    
+    if inform:
+        print("Optimal Variable Values:")
+        for i in range(A.shape[1]):
+            if sol[i]!=0.0:
+                print("x_%i = %0.6f"%(i+1,sol[i]))
+        print("Optimal Slack Variable Values:")
+        for i in range(A.shape[1],S.shape[1]-2):
+            if sol[i]!=0.0:
+                print("x_%i = %0.6f"%(i+1,sol[i]))
+        print("Maximal Value: %0.6f"%S[0,-1])
+        print("Number of Iterations: %i"%iter_count)
+
+    return sol
