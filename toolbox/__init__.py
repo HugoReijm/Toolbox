@@ -6,3 +6,4 @@ import toolbox.swarmtoolbox
 import toolbox.generaltoolbox
 import toolbox.matrixtoolbox
 import toolbox.plottoolbox
+import toolbox.optimizetoolbox
