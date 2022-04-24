@@ -6,26 +6,73 @@ def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
     #assuming the set of feasible solutions is convex. Variable <inform> allows
     #for the user to see diagnostic data of the method.
     
-    d=np.hstack((c,np.zeros(A.shape[0])))
-    try:
-        if "min" in mode.lower():
-            r1=np.hstack((1,d,0))
-        else:
-            r1=np.hstack((1,-d,0))
-    except Exception:
-        r1=np.hstack((1,-d,0))
+    if not isinstance(A,np.ndarray):
+        try:
+            A=np.array(A)
+        except Exception:
+            print("Error: Matrix A of incompatible type.")
+            return None
+    if not isinstance(b,np.ndarray):
+        try:
+            b=np.array(b)
+        except Exception:
+            print("Error: Vector b of incompatible type")
+            return None
+    if not isinstance(c,np.ndarray):
+        try:
+            c=np.array(c)
+        except Exception:
+            print("Vector c of incompatible type")
+            return None
+    if A.shape[1]!=c.shape[0] or A.shape[0]!=b.shape[0]:
+        print("A,b, and c of incompatible sizes")
+        return None
     
-    E=np.hstack((A,np.identity(A.shape[0])))
-    r2=np.hstack((np.zeros((A.shape[0],1)),E,np.array([b]).T))
+    n=c.shape[0]
+    m=0
     if isinstance(inequalities,(list,tuple,np.ndarray)):
-        for i in range(min(r2.shape[0],len(inequalities))):
+        inequalities=np.array(inequalities)
+        for i in range(min(A.shape[0],inequalities.shape[0])):
             try:
-                if "great" in inequalities[i].lower():
-                    r2[i,:]*=-1
-                elif "equal" in inequalities[i].lower():
-                    r2=np.vstack((r2,-r2[i,:]))
+                inequalities[i]=inequalities[i].lower()
+                if ">" in inequalities[i] or "great" in inequalities[i]:
+                    inequalities[i]=">"
+                    m+=1
+                #elif "=" in inequalities[i] or "equal" in inequalities[i]:
+                #    inequalities[i]="="
+                    #SLIGHT ERROR: MUST FIRST BE ON A FEASIBLE SOLUTION
+                else:
+                    inequalities[i]="<"
+                    m+=1
             except Exception:
-                pass
+                inequalities[i]="<"
+                m+=1
+        m+=A.shape[0]-inequalities.shape[0]
+        inequalities=np.hstack((inequalities,["<" for i in range(inequalities.shape[0],A.shape[0])]))
+    else:
+        m=A.shape[0]
+        inequalities=["<" for i in range(A.shape[0])]
+    
+    d=np.hstack((c,np.zeros(m)))
+    if isinstance(mode,str):
+        if "min" in mode.lower():
+            r1=np.hstack((d,0))
+        else:
+            r1=np.hstack((-d,0))
+    else:
+        r1=np.hstack((-d,0))
+    
+    
+    A=np.hstack((A,np.zeros((A.shape[0],m))))
+    col_count=n
+    for i in range(A.shape[0]):
+        if inequalities[i]==">":
+            A[i,col_count]=-1.0
+            col_count+=1
+        elif inequalities[i]=="<":
+            A[i,col_count]=1.0
+            col_count+=1
+    r2=np.hstack((A,np.array([b]).T))
     S=np.vstack((r1,r2))
     
     iter_count=0
@@ -33,7 +80,7 @@ def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
     while pivot:
         pivot_col=-1
         max_cost=0
-        for j in range(1,S.shape[1]-1):
+        for j in range(n+m):
             if S[0,j]<max_cost:
                 pivot_col=j
                 max_cost=S[0,j]
@@ -64,9 +111,9 @@ def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
                 S[i,pivot_col]=0.0
         
         iter_count+=1
-            
-    sol=np.zeros(S.shape[1]-2)
-    for j in range(1,S.shape[1]-1):
+    
+    sol=np.zeros(S.shape[1]-1)
+    for j in range(n+m):
         basis_bool=True
         one_pos=-1
         for i in range(1,S.shape[0]):
@@ -81,18 +128,18 @@ def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
                     else:
                         one_pos=i
         if basis_bool and one_pos!=-1:
-            sol[j-1]=S[one_pos,-1]
+            sol[j]=S[one_pos,-1]
     
     if inform:
         print("Optimal Variable Values:")
-        for i in range(A.shape[1]):
-            if sol[i]!=0.0:
-                print("x_%i = %0.6f"%(i+1,sol[i]))
+        for j in range(n):
+            if sol[j]!=0.0:
+                print("x_%i = %0.6f"%(j+1,sol[j]))
         print("Optimal Slack Variable Values:")
-        for i in range(A.shape[1],S.shape[1]-2):
+        for i in range(n,n+m):
             if sol[i]!=0.0:
                 print("x_%i = %0.6f"%(i+1,sol[i]))
         print("Maximal Value: %0.6f"%S[0,-1])
         print("Number of Iterations: %i"%iter_count)
 
-    return sol
+    return sol[:n]
