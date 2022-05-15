@@ -503,6 +503,7 @@ def optimal_line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,
         return m
     
 def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
+    from toolbox.matrixtoolbox import grad
     mode=mode.lower()
     if "wolf" in mode:
         mode="wolfe"
@@ -725,7 +726,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     #If variable inform is set to True, the method relays information on 
     #it's converge behavior to the user. 
     
-    #from toolbox.matrixtoolbox import jacobian,grad
+    from toolbox.matrixtoolbox import jacobian,grad
     
     x0=np.asarray(x0)
     df=lambda X:grad(f,X,args=args,kwargs=kwargs)
