@@ -503,48 +503,79 @@ def optimal_line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,
         return m
     
 def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
-    from toolbox.matrixtoolbox import grad
     mode=mode.lower()
     if "wolf" in mode:
         mode="wolfe"
     else:
         mode="goldstein"
-    grad_f0=grad(f,x0,args=args,kwargs=kwargs)
     f0=f(x0)
-    a=0
-    alpha=1
+    a=0.0
+    alpha=1.0
     b=np.inf
     bisect_count=0
     cond_flag=False
     double_flag=True
-    while not cond_flag and bisect_count<100:
-        try:
-            res1=f(x0+alpha*delta_x)
-            res2=grad(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
-            if ((mode=="wolfe" and res1>f0+c1*alpha*np.dot(delta_x,grad_f0))
-                    or (mode=="goldstein" and res1>f0+c1*alpha*np.dot(grad_f0,delta_x))):
+    if ("int" in type(x0).__name__) or ("float" in type(x0).__name__):
+        grad_f0=differentiate(f,x0,args=args,kwargs=kwargs)
+        while not cond_flag and bisect_count<100:
+            try:
+                res1=f(x0+alpha*delta_x)
+                res2=differentiate(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
+                if res1>f0+c1*alpha*delta_x*grad_f0:
+                    b=alpha
+                    alpha=0.5*(a+b)
+                    double_flag=False
+                elif ((mode=="wolfe" and res2<c2*grad_f0)
+                        or (mode=="goldstein" and res1<f0+(1-c1)*alpha*delta_x*grad_f0)):
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                    double_flag=False
+                else:
+                    #cond_flag=True
+                    if double_flag and alpha<=1:
+                        alpha*=2
+                    else:
+                        cond_flag=True
+            except Exception:
                 b=alpha
                 alpha=0.5*(a+b)
                 double_flag=False
-            elif ((mode=="wolfe" and np.dot(delta_x,res2)<c2*np.dot(delta_x,grad_f0))
-                    or (mode=="goldstein" and res1<f0+(1-c1)*alpha*np.dot(delta_x,grad_f0))):
-                a=alpha
-                if b<np.inf:
+            bisect_count+=1
+    elif ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
+        grad_f0=grad(f,x0,args=args,kwargs=kwargs)
+        while not cond_flag and bisect_count<100:
+            try:
+                res1=f(x0+alpha*delta_x)
+                res2=grad(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
+                if ((mode=="wolfe" and res1>f0+c1*alpha*np.dot(delta_x,grad_f0))
+                        or (mode=="goldstein" and res1>f0+c1*alpha*np.dot(grad_f0,delta_x))):
+                    b=alpha
                     alpha=0.5*(a+b)
+                    double_flag=False
+                elif ((mode=="wolfe" and np.dot(delta_x,res2)<c2*np.dot(delta_x,grad_f0))
+                        or (mode=="goldstein" and res1<f0+(1-c1)*alpha*np.dot(delta_x,grad_f0))):
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                    double_flag=False
                 else:
-                    alpha=2*a
+                    #cond_flag=True
+                    if double_flag and alpha<=1:
+                        alpha*=2
+                    else:
+                        cond_flag=True
+            except Exception:
+                b=alpha
+                alpha=0.5*(a+b)
                 double_flag=False
-            else:
-                #cond_flag=True
-                if double_flag and alpha<=1:
-                    alpha*=2
-                else:
-                    cond_flag=True
-        except Exception:
-            b=alpha
-            alpha=0.5*(a+b)
-            double_flag=False
-        bisect_count+=1
+            bisect_count+=1
+    else:
+        return None
     return alpha
     
 def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=True,inform=False):
