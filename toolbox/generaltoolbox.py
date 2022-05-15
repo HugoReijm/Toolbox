@@ -399,7 +399,7 @@ def spline(sol,t_array):
         print("Length of sol: %i"%len(t_array))
         return None
 
-def line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,inform=False):
+def optimal_line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,inform=False):
     #This method performs a line search of a function f:R->R to find the
     #minimum of f between variables start and stop using the Brent minimization
     #method, which itself is a hybrid of Golden Section Search and Jarrat
@@ -501,7 +501,51 @@ def line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,inform=F
             ax.xaxis.set_tick_params(labelsize=16)
             ax.yaxis.set_tick_params(labelsize=16)
         return m
-
+    
+def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
+    mode=mode.lower()
+    if "wolf" in mode:
+        mode="wolfe"
+    else:
+        mode="goldstein"
+    grad_f0=grad(f,x0,args=args,kwargs=kwargs)
+    f0=f(x0)
+    a=0
+    alpha=1
+    b=np.inf
+    bisect_count=0
+    cond_flag=False
+    double_flag=True
+    while not cond_flag and bisect_count<100:
+        try:
+            res1=f(x0+alpha*delta_x)
+            res2=grad(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
+            if ((mode=="wolfe" and res1>f0+c1*alpha*np.dot(delta_x,grad_f0))
+                    or (mode=="goldstein" and res1>f0+c1*alpha*np.dot(grad_f0,delta_x))):
+                b=alpha
+                alpha=0.5*(a+b)
+                double_flag=False
+            elif ((mode=="wolfe" and np.dot(delta_x,res2)<c2*np.dot(delta_x,grad_f0))
+                    or (mode=="goldstein" and res1<f0+(1-c1)*alpha*np.dot(delta_x,grad_f0))):
+                a=alpha
+                if b<np.inf:
+                    alpha=0.5*(a+b)
+                else:
+                    alpha=2*a
+                double_flag=False
+            else:
+                #cond_flag=True
+                if double_flag and alpha<=1:
+                    alpha*=2
+                else:
+                    cond_flag=True
+        except Exception:
+            b=alpha
+            alpha=0.5*(a+b)
+            double_flag=False
+        bisect_count+=1
+    return alpha
+    
 def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=True,inform=False):
     #This method performs a BFGS approximation of the minimum of the function 
     #f:R->R, using scalar x0 as it's initial guess. Variable errtol sets the
@@ -665,7 +709,7 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
             ax.xaxis.set_tick_params(labelsize=16)
             ax.yaxis.set_tick_params(labelsize=16)
         return x1
-
+    
 def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=True,inform=False):
     #This method performs a BFGS approximation of the minimum of the function 
     #f:R^n->R, using vector x0 as it's initial guess. Variable errtol sets the
@@ -681,11 +725,15 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     #If variable inform is set to True, the method relays information on 
     #it's converge behavior to the user. 
     
-    from toolbox.matrixtoolbox import jacobian,grad
+    #from toolbox.matrixtoolbox import jacobian,grad
     
     x0=np.asarray(x0)
     df=lambda X:grad(f,X,args=args,kwargs=kwargs)
-    df0=df(x0,*args,**kwargs)
+    try:
+        df0=df(x0,*args,**kwargs)
+    except Exception:
+        print("Error: unable to initialize algorithm using inputted vector x0")
+        return x0
     ndf0=npla.norm(df0)
     
     if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
@@ -713,63 +761,33 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
         except Exception:
             dfinv=np.zeros(dim,dim)
     else:
-        mode="bfgs"
         dfinv=np.identity(dim)
-    
-    c1=1e-4
-    c2=0.9
-    delta_x=-np.dot(dfinv,df0)
-    x1=x0+delta_x
-    df1=df(x1,*args,**kwargs)
-    ndf1=npla.norm(df1)
-    alpha=1.0
-    
-    if adapt and npla.norm(delta_x)>0:
-        ndf=lambda x:npla.norm(df(x,*args,**kwargs))
-        grad_ndf0=grad(ndf,x0)
-        a=0
-        b=np.inf
-        bisect_count=0
-        wolfe_flag=False
-        double_flag=True
-        while not wolfe_flag and bisect_count<100:
-            if ndf(x0+alpha*delta_x)>ndf0+c1*alpha*np.dot(delta_x,grad_ndf0):
-                b=alpha
-                alpha=0.5*(a+b)
-                double_flag=False
-            elif np.dot(delta_x,grad(ndf,x0+alpha*delta_x))<c2*np.dot(delta_x,grad_ndf0):
-                a=alpha
-                if b<np.inf:
-                    alpha=0.5*(a+b)
-                else:
-                    alpha=2*a
-                double_flag=False
-            else:
-                if double_flag and alpha<=1:
-                    alpha*=2
-                else:
-                    wolfe_flag=True
-            bisect_count+=1
-        x1=x0+alpha*delta_x
-        df1=df(x1,*args,**kwargs)
-        ndf1=npla.norm(df1)
-    
-    newt_count=1
-    if inform:
-        F=[ndf0,ndf1]
-    while ndf1>errtol and npla.norm(x1-x0)>errtol and newt_count<maxlevel:
-        if mode=="bfgs":
-            try:
-                delta_df=df1-df0
-                inner_df=np.inner(delta_df,delta_x)
-                temp_matrix=np.dot(dfinv,np.outer(delta_df,delta_x))
-                dfinv=dfinv+(np.inner(delta_df,delta_x)+np.inner(delta_df,np.dot(dfinv,delta_df)))/inner_df**2*np.outer(delta_x,delta_x)-(temp_matrix+np.transpose(temp_matrix))/inner_df
-            except Exception:
-                try:
-                    dfinv=npla.inv(jacobian(df,x0,args=args,kwargs=kwargs))
-                except Exception:
-                    dfinv=np.zeros((dim,dim))
+        if "broyden" in mode:
+            mode="broyden"
+        elif "dfp" in mode:
+            mode="dfp"
+        elif ("sr" in mode) or ("1" in mode):
+            mode="sr-1"
         else:
+            mode="bfgs"
+    
+    alpha=1.0
+    min_flag=(ndf0<=errtol)
+    extreme_flag=False
+    newt_count=0
+    if inform:
+        F=[ndf0]
+    while not min_flag and not extreme_flag and newt_count<maxlevel:
+        delta_x=-np.dot(dfinv,df0)
+        if adapt:
+            if mode=="newton_raphson":
+                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,mode="wolfe")
+            else:
+                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,mode="goldstein")
+        x1=x0+alpha*delta_x
+        df1=df(x1)
+        ndf1=npla.norm(df1)
+        if mode=="newton_raphson":
             try:
                 dfinv=npla.inv(jacobian(df,x0,args=args,kwargs=kwargs))
             except Exception:
@@ -780,45 +798,38 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
                     dfinv=dfinv+(np.inner(delta_df,delta_x)+np.inner(delta_df,np.dot(dfinv,delta_df)))/inner_df**2*np.outer(delta_x,delta_x)-(temp_matrix+np.transpose(temp_matrix))/inner_df
                 except Exception:
                     dfinv=np.zeros((dim,dim))
-
-        delta_x=-np.dot(dfinv,df1)
-        x0=x1.copy()
-        df0=df1.copy()
-        ndf0=ndf1.copy()
-        if adapt and npla.norm(delta_x)>0:
-            ndf=lambda x:npla.norm(df(x,*args,**kwargs))
-            grad_ndf0=grad(ndf,x0)
-            a=0
-            b=np.inf
-            bisect_count=0
-            wolfe_flag=False
-            double_flag=True
-            while not wolfe_flag and bisect_count<100:
-                if ndf(x0+alpha*delta_x)>ndf0+c1*alpha*np.dot(delta_x,grad_ndf0):
-                    b=alpha
-                    alpha=0.5*(a+b)
-                    double_flag=False
-                elif np.dot(delta_x,grad(ndf,x0+alpha*delta_x))<c2*np.dot(delta_x,grad_ndf0):
-                    a=alpha
-                    if b<np.inf:
-                        alpha=0.5*(a+b)
-                    else:
-                        alpha=2*a
-                    double_flag=False
+        else:
+            try:
+                delta_df=df1-df0
+                if mode=="broyden":
+                    res1=np.dot(dfinv,delta_df)
+                    dfinv=dfinv+np.outer(delta_x-res1,np.dot(delta_x,dfinv))/np.inner(delta_x,res1)
+                elif mode=="dfp":
+                    res1=np.dot(dfinv,delta_df)
+                    dfinv=dfinv+np.outer(delta_x,delta_x)/np.inner(delta_x,delta_df)-np.outer(res1,res1)/np.inner(delta_df,res1)
+                elif mode=="sr-1":
+                    res1=delta_x-np.dot(dfinv,delta_df)
+                    dfinv=dfinv+np.outer(res1,res1)/np.inner(res1,delta_df)
                 else:
-                    if double_flag and alpha<=1:
-                        alpha*=2
-                    else:
-                        wolfe_flag=True
-                bisect_count+=1
-        x1=x0+alpha*delta_x
-        df1=df(x1,*args,**kwargs)
-        ndf1=npla.norm(df1)
-        
+                    res1=np.inner(delta_df,delta_x)
+                    res2=np.dot(dfinv,np.outer(delta_df,delta_x))
+                    dfinv=dfinv+(np.inner(delta_df,delta_x)+np.inner(delta_df,np.dot(dfinv,delta_df)))*np.outer(delta_x,delta_x)/res1**2-(res2+np.transpose(res2))/res1
+            except Exception:
+                try:
+                    dfinv=npla.inv(jacobian(df,x0,args=args,kwargs=kwargs))
+                except Exception:
+                    dfinv=np.zeros((dim,dim))
+
         if inform:
             F.append(ndf1)
+        min_flag=(ndf1<=errtol)
+        extreme_flag=(npla.norm(x1-x0)<=errtol)
+        x0=x1.copy()
+        df0=df1.copy()
+        ndf0=ndf1
         newt_count+=1
-    if ndf1>errtol and npla.norm(x1-x0)>errtol:
+        
+    if not min_flag and not extreme_flag:
         if inform:
             print("Unable to find minimum after %i iterations"%newt_count)
             ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
@@ -831,12 +842,12 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
         return None
     else:
         if inform:
-            if ndf1<=errtol:
+            if min_flag:
                 print("Minimum found after %i iterations"%newt_count)
-                print("||grad_f(x)||_2 = %0.6f"%ndf1)
+                print("||grad_f(x)||_2 = %0.6f"%ndf0)
             else:
                 print("Extremum of gradient found after %i iterations"%newt_count)
-                print("||grad_f(x)||_2 = %0.6f"%ndf1)
+                print("||grad_f(x)||_2 = %0.6f"%ndf0)
             ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
             ax.plot([i for i in range(len(F))],F)
             ax.set_title("Function Gradient Norm per Iteration",fontdict=font)
@@ -844,7 +855,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
             ax.set_ylabel("Function Gradient Norm",fontsize=16)
             ax.xaxis.set_tick_params(labelsize=16)
             ax.yaxis.set_tick_params(labelsize=16)
-        return x1
+        return x0
 
 def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
     #This method performs a Newton-Raphson approximation of the root of the 
