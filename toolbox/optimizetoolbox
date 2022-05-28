@@ -143,3 +143,106 @@ def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
         print("Number of Iterations: %i"%iter_count)
 
     return sol[:n]
+
+def nelder_mead(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,inform=False):
+    class simplex(object):
+        def __init__(self,V,f):
+            self.V=V.copy()
+            self.f=f
+            self.F=np.array([self.f(v,*args,**kwargs) for v in V])
+            
+        def order(self):
+            index=np.argsort(self.F)
+            self.V=self.V[index]
+            self.F=self.F[index]
+            self.C=np.mean(self.V[:-1],axis=0)
+            self.FC=self.f(self.C,*args,**kwargs)
+            
+        def reflect(self,a=1.0):
+            v=self.C+a*(self.C-self.V[-1])
+            fv=self.f(v,*args,**kwargs)
+            if fv<=self.F[0]:
+                self.expand(v,fv)
+            elif fv<=self.F[-2]:
+                self.V[-1]=v.copy()
+                self.F[-1]=fv
+            elif fv<self.F[-1]:
+                self.contract(v,fv)
+            else:
+                self.contract(v,fv,inner=True)
+        
+        def expand(self,vr,fvr,a=2.0):
+            v=self.C+a*(self.C-self.V[-1])
+            fv=self.f(v,*args,**kwargs)
+            if fv<=self.F[0]:
+                #self.expand(v,fv,a=2*a)
+                self.V[-1]=v.copy()
+                self.F[-1]=fv
+            else:
+                self.V[-1]=vr.copy()
+                self.F[-1]=fvr
+        
+        def contract(self,vr,fvr,a=0.5,inner=False):
+            if inner:
+                v=self.C-a*(self.C-self.V[-1])
+            else:
+                v=self.C+a*(self.C-self.V[-1])
+            fv=self.f(v,*args,**kwargs)
+            if (inner and fv<=self.F[-1]) or (not inner and fv<=fvr):
+                self.V[-1]=v.copy()
+                self.F[-1]=fv
+            else:
+                self.shrink()
+        
+        def shrink(self,a=0.5):
+            self.V[1:]=self.V[1:]-a*(self.V[1:]-self.V[0])
+            self.F[1:]=[self.f(v,*args,**kwargs) for v in V[1:]]
+    
+    if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
+        x0=np.asarray(x0)
+        dim=len(x0)
+        try:
+            f0=f(x0,*args,**kwargs)
+            if ("int" not in type(f0).__name__) and ("float" not in type(f0).__name__):
+                if inform:
+                    print("Error: unable to apply Nelder-Mead iteration to this function")
+                return None
+        except Exception:
+            if inform:
+                print("Error: unable to apply Nelder-Mead iteration to this function")
+            return None
+    else:
+        if inform:
+            print("Error: unable to apply Nelder-Mead iteration to this function")
+        return None
+    
+    V=[x0]
+    for i in range(dim):
+        res=np.zeros(dim)
+        res[i]=1.0
+        V.append(x0+res)
+    V=np.array(V)
+    s=simplex(V,f)
+    std=np.std(s.F)
+    count=0
+    if inform:
+        plotline=[f(np.mean(s.V,axis=0),*args,**kwargs)]
+    while std>errtol and count<maxlevel:
+        s.order()
+        s.reflect()
+        std=np.std(s.F)
+        if inform:
+            plotline.append(s.F[0])
+        count+=1
+    
+    if inform:
+        print("Solution after %i iterations"%count)
+        print("F(x)=%0.6f"%s.F[0])
+        ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+        ax.plot([i for i in range(len(plotline))],plotline)
+        ax.set_title("Simplex Min Function Value per Iteration",fontdict=font)
+        ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+        ax.set_ylabel("Function Value",fontsize=16)
+        ax.xaxis.set_tick_params(labelsize=16)
+        ax.yaxis.set_tick_params(labelsize=16)
+    return s.V[0]
