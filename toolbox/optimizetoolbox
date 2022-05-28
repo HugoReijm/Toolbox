@@ -1,4 +1,6 @@
 import numpy as np
+import warnings
+warnings.filterwarnings("error")
 
 def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
     #This method solves the optimization problem
