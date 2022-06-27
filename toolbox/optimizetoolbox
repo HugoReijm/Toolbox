@@ -1,6 +1,16 @@
 import numpy as np
+import numpy.linalg as npla
+import toolbox.generaltoolbox as gtb
+import toolbox.matrixtoolbox as mtb
+import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings("error")
+
+graphsize=9
+font = {"family": "serif",
+    "color": "black",
+    "weight": "bold",
+    "size": "20"}
 
 def simplex(A,b,c,inequalities=None,mode="maximize",inform=False):
     #This method solves the optimization problem
@@ -263,7 +273,7 @@ def exact_line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,in
         temp=start
         start=stop
         stop=temp
-    phi=(1+math.sqrt(5))/2
+    phi=(1+np.sqrt(5))/2
     x=stop-(phi-1)*(stop-start)
     fx=f(x,*args,**kwargs)
     v=x
@@ -365,15 +375,17 @@ def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
     bisect_count=0
     cond_flag=False
     if ("int" in type(x0).__name__) or ("float" in type(x0).__name__):
-        grad_f0=differentiate(f,x0,args=args,kwargs=kwargs)
+        grad_f0=gtb.differentiate(f,x0,args=args,kwargs=kwargs)
         while not cond_flag and bisect_count<100:
             try:
                 res1=f(x0+alpha*delta_x)
                 if res1>f0+c1*alpha*delta_x*grad_f0:
                     b=alpha
-                    alpha=0.5*(a+b)
+                    res2=gtb.grad(f,x0,args=args,kwargs=kwargs)
+                    alpha=-np.inner(res2,delta_x)*b**2/(res1-f0-np.inner(res2,delta_x)*b)
+                    #alpha=0.5*(a+b)
                 else:
-                    res2=differentiate(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
+                    res2=gtb.differentiate(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
                     if ((mode=="wolfe" and res2<c2*grad_f0)
                             or (mode=="goldstein" and res1<f0+(1-c1)*alpha*delta_x*grad_f0)):
                         a=alpha
@@ -388,11 +400,11 @@ def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
                 alpha=0.5*(a+b)
             bisect_count+=1
     elif ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
-        grad_f0=grad(f,x0,args=args,kwargs=kwargs)
+        grad_f0=mtb.grad(f,x0,args=args,kwargs=kwargs)
         while not cond_flag and bisect_count<100:
             try:
                 res1=f(x0+alpha*delta_x)
-                res2=grad(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
+                res2=mtb.grad(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
                 if ((mode=="wolfe" and res1>f0+c1*alpha*np.dot(delta_x,grad_f0))
                         or (mode=="goldstein" and res1>f0+c1*alpha*np.dot(grad_f0,delta_x))):
                     b=alpha
@@ -760,9 +772,7 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
     #If variable inform is set to True, the method relays information on 
     #it's converge behavior to the user. 
     
-    from toolbox.matrixtoolbox import jacobian,grad
-    
-    df=lambda X:differentiate(f,X,args=args,kwargs=kwargs)
+    df=lambda X:gtb.differentiate(f,X,args=args,kwargs=kwargs)
     try:
         df0=df(x0,*args,**kwargs)
     except Exception:
@@ -784,7 +794,7 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
     if ("newt" in mode) or ("raph" in mode):
         mode="newton_raphson"    
         try:
-            dfinv=1.0/differentiate(df,x0,args=args,kwargs=kwargs)
+            dfinv=1.0/gtb.differentiate(df,x0,args=args,kwargs=kwargs)
         except Exception:
             dfinv=0.0
     else:
@@ -809,7 +819,7 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
         ndf1=abs(df1)
         if mode=="newton_raphson":
             try:
-                dfinv=1.0/differentiate(df,x0,args=args,kwargs=kwargs)
+                dfinv=1.0/gtb.differentiate(df,x0,args=args,kwargs=kwargs)
             except Exception:
                 try:
                     dfinv=delta_x/df1-df0
@@ -820,7 +830,7 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
                 dfinv=delta_x/df1-df0
             except Exception:
                 try:
-                    dfinv=1.0/differentiate(df,x0,args=args,kwargs=kwargs)
+                    dfinv=1.0/gtb.differentiate(df,x0,args=args,kwargs=kwargs)
                 except Exception:
                     dfinv=0.0
 
@@ -876,10 +886,8 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     #If variable inform is set to True, the method relays information on 
     #it's converge behavior to the user. 
     
-    from toolbox.matrixtoolbox import jacobian,grad
-    
     x0=np.asarray(x0)
-    df=lambda X:grad(f,X,args=args,kwargs=kwargs)
+    df=lambda X:mtb.grad(f,X,args=args,kwargs=kwargs)
     try:
         df0=df(x0,*args,**kwargs)
     except Exception:
@@ -908,7 +916,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     if ("newt" in mode) or ("raph" in mode):
         mode="newton_raphson"    
         try:
-            dfinv=npla.inv(jacobian(df,x0,args=args,kwargs=kwargs))
+            dfinv=npla.inv(mtb.jacobian(df,x0,args=args,kwargs=kwargs))
         except Exception:
             dfinv=np.zeros(dim,dim)
     else:
@@ -940,7 +948,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
         ndf1=npla.norm(df1)
         if mode=="newton_raphson":
             try:
-                dfinv=npla.inv(jacobian(df,x0,args=args,kwargs=kwargs))
+                dfinv=npla.inv(mtb.jacobian(df,x0,args=args,kwargs=kwargs))
             except Exception:
                 try:
                     delta_df=df1-df0
@@ -967,7 +975,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
                     dfinv=dfinv+(np.inner(delta_df,delta_x)+np.inner(delta_df,np.dot(dfinv,delta_df)))*np.outer(delta_x,delta_x)/res1**2-(res2+np.transpose(res2))/res1
             except Exception:
                 try:
-                    dfinv=npla.inv(jacobian(df,x0,args=args,kwargs=kwargs))
+                    dfinv=npla.inv(mtb.jacobian(df,x0,args=args,kwargs=kwargs))
                 except Exception:
                     dfinv=np.zeros((dim,dim))
 
@@ -1007,3 +1015,244 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
             ax.xaxis.set_tick_params(labelsize=16)
             ax.yaxis.set_tick_params(labelsize=16)
         return x0
+
+def sqp(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,inform=False,mode="broyden"):
+    if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
+        x0=np.asarray(x0)
+        n=len(x0)
+        try:
+            if ("int" not in type(f(x0)).__name__) and ("float" not in type(f(x0)).__name__):
+                if inform:
+                    print("Error: objective function f is not a R^%i->R function"%n)
+                return None
+        except Exception:
+            if inform:
+                print("Error: unable to initialize algorithm by applying objective function f to point x0")
+            return None
+        
+        try:
+            if ("list" in type(h(x0)).__name__) or ("tuple" in type(h(x0)).__name__) or ("ndarray" in type(h(x0)).__name__):
+                m_e=len(h(x0))
+            else:
+                if inform:
+                    print("Error: equality constraint function h is not a R^%i->R^m_e function"%n)
+                return None
+        except Exception:
+            if inform:
+                print("Error: unable to initialize algorithm by applying equality constraint function h to point x0")
+            return None
+        
+        try:
+            if ("list" in type(g(x0)).__name__) or ("tuple" in type(g(x0)).__name__) or ("ndarray" in type(g(x0)).__name__):
+                m_i=len(g(x0))
+            else:
+                if inform:
+                    print("Error: inequality constraint function g is not a R^%i->R^m_i function"%n)
+                return None
+        except Exception:
+            if inform:
+                print("Error: unable to initialize algorithm by applying inequality constraint function g to point x0")
+            return None
+    else:
+        if inform:
+            print("Error: unable to initialize SQP algorithm with inputted point x0.")
+        return None
+    
+    mode=mode.lower()
+    if "b" in mode and "f" in mode and "g" in mode:
+        mode="bfgs"
+    elif "b" in mode:
+        mode="broyden"
+    elif "d" in mode and "f" in mode and "p" in mode:
+        mode="dfp"
+    elif "s" in mode and "r" in mode and "1" in mode:
+        mode="sr1"
+    else:
+        mode="newton_raphson"
+    
+    if m_i>0:
+        res_G=g(x0)
+        A=[i for i in range(m_i) if res_G[i]>=-abs(zerotol)]
+        m_A=len(A)
+        I=[i for i in range(m_i) if res_G[i]<-abs(zerotol)]
+        m_I=len(I)
+    else:
+        A=[]
+        m_A=0
+        I=[]
+        m_I=0
+    
+    def g_A(x):
+        res_G=g(x)
+        return np.array([res_G[i] for i in A])
+    
+    def H(x):
+        try:
+            B=np.zeros((n+m_e+m_A,n+m_e+m_A))
+            B[:n,:n]=mtb.jacobian(lambda X:mtb.grad(f,X),x)
+            if m_e>0:
+                B[n:n+m_e,:n]=mtb.jacobian(h,x)
+                B[:n,n:n+m_e]=B[n:n+m_e,:n].T
+            if m_A>0:
+                B[n+m_e:,:n]=mtb.jacobian(g_A,x)
+                B[:n,n+m_e:]=B[n+m_e:,:n].T
+            return B
+        except Exception:
+            return np.identity(n+m_e+m_A)
+    
+    def delta_f(x):
+        delta_f=np.zeros(n+m_e+m_A)
+        delta_f[:n]=mtb.grad(f,x)
+        if m_e>0:
+            delta_f[n:n+m_e]=h(x)
+        if m_A>0:
+            delta_f[n+m_e:]=g_A(x)
+        return delta_f
+        
+    if mode=="newton_raphson":
+        B=H(x0)
+    else:
+        B=npla.inv(H(x0))
+    D_F=delta_f(x0)
+    if inform:
+        F=[f(x0)]
+    sqp_bool=True
+    count=0
+    while sqp_bool and count<maxlevel:
+        if mode=="newton_raphson":
+            res_d=npla.solve(B,-1.0*D_F)
+        else:
+            res_d=-np.dot(B,D_F)
+        delta_x=np.zeros(n+m_e+m_i)
+        delta_x[:n+m_e]=res_d[:n+m_e]
+        for i in range(m_A):
+            delta_x[n+m_e+A[i]]+=res_d[n+m_e+i]
+        
+        if npla.norm(delta_x[:n])<=errtol:
+            sqp_bool=False
+            if m_A>0:
+                for i in range(m_A):
+                    if delta_x[n+m_e+A[i]]<-abs(zerotol):
+                        I.append(A[i])
+                        m_I+=1
+                        A=A[:i]+A[i+1:]
+                        m_A-=1
+                        sqp_bool=True
+                        if mode=="newton_raphson":
+                            B=H(x0)
+                        else:
+                            B=npla.inv(H(x0))
+                        D_F=delta_f(x0)
+                        break
+        else:
+            alpha=1.0
+            if m_I>0:
+                res_G=g(x0)
+                res_JG=mtb.jacobian(g,x0)
+                for i in I:
+                    res1=res_G[i]
+                    res2=np.inner(res_JG[i,:],delta_x[:n])
+                    if abs(res2)>abs(zerotol):
+                        res=-res1/res2
+                    else:
+                        res=1.0
+                    if 0<res<=alpha:
+                        alpha=res
+            x0=x0+alpha*delta_x[:n]
+            changed_bool=True
+            if m_i>0:
+                res_G=g(x0)
+                temp_A=A.copy()
+                temp_m_A=m_A
+                A=[i for i in range(m_i) if res_G[i]>=-abs(zerotol)]
+                m_A=len(A)
+                if temp_m_A!=m_A or temp_A!=A:
+                    changed_bool=False
+                I=[i for i in range(m_i) if res_G[i]<-abs(zerotol)]
+                m_I=len(I)
+            if mode=="newton_raphson":
+                B=H(x0)
+                D_F=delta_f(x0)
+            else:
+                if changed_bool:
+                    if mode=="bfgs":
+                        try:
+                            res_d=alpha*res_d
+                            temp_D_F=D_F.copy()
+                            D_F=delta_f(x0)
+                            res1=D_F-temp_D_F
+                            res2=np.inner(res_d,res1)
+                            res3=np.dot(B,np.outer(res1,res_d))
+                            B=B+(res2+np.inner(res1,np.dot(B,res1)))*np.outer(res_d,res_d)/(res2**2)-(res3+res3.T)/res2
+                        except Exception:
+                            B=npla.inv(H(x0))
+                            D_F=delta_f(x0)
+                    elif mode=="broyden":
+                        try:
+                            res_d=alpha*res_d
+                            temp_D_F=D_F.copy()
+                            D_F=delta_f(x0)
+                            res1=D_F-temp_D_F
+                            res2=np.dot(B,res1)
+                            B=B+np.dot(np.outer((res-res2),res),B)/np.inner(res,res2)
+                        except Exception:
+                            B=npla.inv(H(x0))
+                            D_F=delta_f(x0)
+                    elif mode=="dfp":
+                        try:
+                            res_d=alpha*res_d
+                            temp_D_F=D_F.copy()
+                            D_F=delta_f(x0)
+                            res1=D_F-temp_D_F
+                            res2=np.dot(B,res)
+                            B=B+np.outer(res,res)/np.inner(res,res1)-np.outer(res2,res2)/np.inner(res1,np.dot(B,res1))
+                        except Exception:
+                            B=npla.inv(H(x0))
+                            D_F=delta_f(x0)
+                    elif mode=="sr1":
+                        try:
+                            res_d=alpha*res_d
+                            temp_D_F=D_F.copy()
+                            D_F=delta_f(x0)
+                            res1=D_F-temp_D_F
+                            res2=res-np.dot(B,res)
+                            B=B+np.outer(res2,res)/np.inner(res2,res)
+                        except Exception:
+                            B=npla.inv(H(x0))
+                            D_F=delta_f(x0)
+                    else:
+                        B=npla.inv(H(x0))
+                        D_F=delta_f(x0)
+                else:
+                    B=npla.inv(H(x0))
+                    D_F=delta_f(x0)
+        if inform:
+            F.append(f(x0))
+        count+=1
+        
+    if npla.norm(delta_x[:n])<=errtol and all(delta_x[n+m_e:]>=-abs(zerotol)):
+        if inform:
+            print("Minimum found after %i iterations using %s"%(count,mode))
+            print("f(x) = %0.6f"%f(x0))
+            ax1=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax1.plot([i for i in range(len(F))],F)
+            ax1.set_title("Function Value per Iteration"%mode,fontdict=font)
+            ax1.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax1.set_ylabel("Function Value",fontsize=16)
+            ax1.xaxis.set_tick_params(labelsize=16)
+            ax1.yaxis.set_tick_params(labelsize=16)
+        return x0
+    else:
+        if inform:
+            if count==maxlevel:
+                print("Unable to find minimum after %i iterations using %s"%(count,mode))
+            else:
+                print("Converged to suboptimal point after %i iterations using %s"%(count,mode))
+            ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+            ax.plot([i for i in range(len(F))],F)
+            ax.set_title("Function Value per Iteration",fontdict=font)
+            ax.set_xlabel("Iteration",fontsize=16,rotation=0)
+            ax.set_ylabel("Function Value",fontsize=16)
+            ax.xaxis.set_tick_params(labelsize=16)
+            ax.yaxis.set_tick_params(labelsize=16)
+        return None
