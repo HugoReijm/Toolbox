@@ -884,7 +884,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     #conditions to damp (or accelerate) the Newton-Raphson iteration to coerce
     #global converge to a minimum or minimum of the function's gradient.
     #If variable inform is set to True, the method relays information on 
-    #it's converge behavior to the user. 
+    #it's converge behavior to the user.
     
     x0=np.asarray(x0)
     df=lambda X:mtb.grad(f,X,args=args,kwargs=kwargs)
@@ -1016,7 +1016,21 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
             ax.yaxis.set_tick_params(labelsize=16)
         return x0
 
-def sqp(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,inform=False,mode="broyden"):
+def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,inform=False,mode="broyden"):
+    #This method performs an active set SQP algorithm of the minimum of the function 
+    #f:R^n->R, using vector x0 as it's initial guess under equality and inequality constraints.
+    #Variable errtol sets the minimum norm that the function gradient can take on
+    #before an approximate of the minimum is made. Variable zerotol removes roundoff errors.
+    #Variable maxlevel determines the maximum number of
+    #iterations the method can perform before it is forced to end.
+    #If variable mode is set to "newton_raphson", the inverse Hessian is
+    #computed every iteration. If variable mode is set to "bfgs", the
+    #inverse Hessian is approximated using the BFGS method (default).
+    #If variable adapt is set to True, the method uses the weak Wolfe 
+    #conditions to damp (or accelerate) the Newton-Raphson iteration to coerce
+    #global converge to a minimum or minimum of the function's gradient.
+    #If variable inform is set to True, the method relays information on 
+    #it's converge behavior to the user. 
     if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
         x0=np.asarray(x0)
         n=len(x0)
@@ -1120,7 +1134,13 @@ def sqp(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,i
     count=0
     while sqp_bool and count<maxlevel:
         if mode=="newton_raphson":
-            res_d=npla.solve(B,-1.0*D_F)
+            try:
+                res_d=npla.solve(B,-1.0*D_F)
+            except npla.LinAlgError as err:
+                if "Singular matrix" in str(err):
+                    res_d=-1.0*D_F/npla.norm(D_F)
+                else:
+                    raise
         else:
             res_d=-np.dot(B,D_F)
         delta_x=np.zeros(n+m_e+m_i)
