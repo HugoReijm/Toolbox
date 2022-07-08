@@ -228,6 +228,9 @@ def nelder_mead(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,inform=False):
             print("Error: unable to apply Nelder-Mead iteration to this function")
         return None
     
+    errtol=abs(errtol)
+    maxlevel=abs(maxlevel)
+    
     V=[x0]
     for i in range(dim):
         res=np.zeros(dim)
@@ -269,6 +272,10 @@ def exact_line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,in
     #maximum number of iterations the method can perform before it is forced to
     #end. If variable inform is set to true, the method relays information on 
     #it's converge behavior to the user. 
+    
+    errtol=abs(errtol)
+    maxlevel=abs(maxlevel)
+    
     if stop<start:
         temp=start
         start=stop
@@ -362,55 +369,22 @@ def exact_line_search(f,start,stop,args=[],kwargs={},errtol=1e-6,maxlevel=100,in
             ax.yaxis.set_tick_params(labelsize=16)
         return m
 
-def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
-    mode=mode.lower()
-    if "wolf" in mode:
-        mode="wolfe"
-    else:
-        mode="goldstein"
+def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,maxlevel=100,wolfe_mode=True):
     f0=f(x0)
     a=0.0
     alpha=1.0
     b=np.inf
     bisect_count=0
     cond_flag=False
-    if ("int" in type(x0).__name__) or ("float" in type(x0).__name__):
-        grad_f0=gtb.differentiate(f,x0,args=args,kwargs=kwargs)
-        while not cond_flag and bisect_count<100:
+    grad_f0=gtb.differentiate(f,x0,args=args,kwargs=kwargs)
+    if wolfe_mode:
+        while not cond_flag and bisect_count<maxlevel:
             try:
-                res1=f(x0+alpha*delta_x)
-                if res1>f0+c1*alpha*delta_x*grad_f0:
-                    b=alpha
-                    res2=gtb.grad(f,x0,args=args,kwargs=kwargs)
-                    alpha=-np.inner(res2,delta_x)*b**2/(res1-f0-np.inner(res2,delta_x)*b)
-                    #alpha=0.5*(a+b)
-                else:
-                    res2=gtb.differentiate(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
-                    if ((mode=="wolfe" and res2<c2*grad_f0)
-                            or (mode=="goldstein" and res1<f0+(1-c1)*alpha*delta_x*grad_f0)):
-                        a=alpha
-                        if b<np.inf:
-                            alpha=0.5*(a+b)
-                        else:
-                            alpha=2*a
-                    else:
-                        cond_flag=True
-            except Exception:
-                b=alpha
-                alpha=0.5*(a+b)
-            bisect_count+=1
-    elif ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
-        grad_f0=mtb.grad(f,x0,args=args,kwargs=kwargs)
-        while not cond_flag and bisect_count<100:
-            try:
-                res1=f(x0+alpha*delta_x)
-                res2=mtb.grad(f,x0+alpha*delta_x,args=args,kwargs=kwargs)
-                if ((mode=="wolfe" and res1>f0+c1*alpha*np.dot(delta_x,grad_f0))
-                        or (mode=="goldstein" and res1>f0+c1*alpha*np.dot(grad_f0,delta_x))):
+                res1=alpha*delta_x
+                if f(x0+res1)>f0+c1*res1*grad_f0:
                     b=alpha
                     alpha=0.5*(a+b)
-                elif ((mode=="wolfe" and np.dot(delta_x,res2)<c2*np.dot(delta_x,grad_f0))
-                        or (mode=="goldstein" and res1<f0+(1-c1)*alpha*np.dot(delta_x,grad_f0))):
+                elif gtb.differentiate(f,x0+res1,args=args,kwargs=kwargs)<c2*grad_f0:
                     a=alpha
                     if b<np.inf:
                         alpha=0.5*(a+b)
@@ -423,10 +397,82 @@ def line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,mode="Wolfe"):
                 alpha=0.5*(a+b)
             bisect_count+=1
     else:
-        return None
+        while not cond_flag and bisect_count<maxlevel:
+            try:
+                res1=alpha*delta_x
+                res2=f(x0+res1)
+                res3=res1*grad_f0
+                if res2>f0+c1*res3:
+                    b=alpha
+                    alpha=0.5*(a+b)
+                elif res2<f0+(1-c1)*res3:
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                else:
+                    cond_flag=True
+            except Exception:
+                b=alpha
+                alpha=0.5*(a+b)
+            bisect_count+=1
     return alpha
 
-def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
+def multi_line_search(f,x0,delta_x,args=[],kwargs={},c1=1e-4,c2=0.9,maxlevel=100,wolfe_mode=True):
+    f0=f(x0)
+    a=0.0
+    alpha=1.0
+    b=np.inf
+    bisect_count=0
+    cond_flag=False
+    grad_f0=mtb.grad(f,x0,args=args,kwargs=kwargs)
+    if wolfe_mode:
+        while not cond_flag and bisect_count<maxlevel:
+            try:
+                res1=x0+alpha*delta_x
+                res2=np.dot(delta_x,grad_f0)
+                if f(res1)>f0+c1*alpha*res2:
+                    b=alpha
+                    alpha=0.5*(a+b)
+                elif np.dot(delta_x,mtb.grad(f,res1,args=args,kwargs=kwargs))<c2*res2:
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                else:
+                    cond_flag=True
+            except Exception:
+                b=alpha
+                alpha=0.5*(a+b)
+            bisect_count+=1
+    else:
+        while not cond_flag and bisect_count<maxlevel:
+            try:
+                res1=alpha*delta_x
+                res2=f(x0+res1)
+                res3=np.dot(res1,grad_f0)
+                if res2>f0+c1*res3:
+                    b=alpha
+                    alpha=0.5*(a+b)
+                elif res2<f0+(1-c1)*res3:
+                    a=alpha
+                    if b<np.inf:
+                        alpha=0.5*(a+b)
+                    else:
+                        alpha=2*a
+                else:
+                    cond_flag=True
+            except Exception:
+                b=alpha
+                alpha=0.5*(a+b)
+            bisect_count+=1
+    if bisect_count>=maxlevel:
+        return 0.0
+    return alpha
+
+def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,zerotol=1e-8,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
     #This method performs a Newton-Raphson approximation of the root of the 
     #function f:R->R, using scalar x0 as it's initial guess.
     #Variable errtol sets the minimum norm that the function can take on before
@@ -452,88 +498,65 @@ def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_bro
             print("Error: unable to apply Newton-Raphson iteration to this function")
         return None
         
-    from toolbox.generaltoolbox import differentiate
-    
-    c1=1e-4
-    c2=0.9
-    try:
-        dfinv=1/differentiate(f,x0,args=args,kwargs=kwargs)
-    except Exception:
-        dfinv=0
-    x1=x0-dfinv*f0
-    f1=f(x1,*args,**kwargs)
-    nf1=abs(f1)
-    alpha=1.0
-    
     mode=mode.lower()
     if "broyden" in mode:
         mode="broyden"
     else:
         mode="newton_raphson"
+    errtol=abs(errtol)
+    zerotol=abs(zerotol)
+    maxlevel=abs(maxlevel)
     
-    newt_count=1
+    try:
+        dfinv=1.0/gtb.differentiate(f,x0,args=args,kwargs=kwargs)
+    except Exception:
+        dfinv=0.0
+    
+    min_flag=(nf0<=errtol)
+    extreme_flag=False
+    newt_count=0
     if inform:
-        F=[nf0,nf1]
+        F=[nf0]
     
-    while nf1>errtol and abs(x1-x0)>errtol and newt_count<maxlevel:
+    while not min_flag and not extreme_flag and newt_count<maxlevel:
+        delta_x=-dfinv*f0
+        alpha=1.0
+        if adapt:# and delta_x*gtb.differentiate(f,x0,args=kwargs)*f0<-zerotol:
+            if mode=="newton_raphson":
+                alpha=line_search(lambda x:abs(f(x,*args,**kwargs)),x0,delta_x)
+            else:
+                alpha=line_search(lambda x:abs(f(x,*args,**kwargs)),x0,delta_x,wolfe_mode=False)
+        x1=x0+alpha*delta_x
+        f1=f(x1,*args,**kwargs)
+        nf1=abs(f1)
+        
         if "broyden" in mode:
             try:
                 dfinv=(x1-x0)/(f1-f0)
             except Exception:
                 try:
-                    dfinv=1/differentiate(f,x1,args=args,kwargs=kwargs)
+                    dfinv=1.0/gtb.differentiate(f,x1,args=args,kwargs=kwargs)
                 except Exception:
-                    dfinv=0
+                    dfinv=0.0
         else:
             try:
-                dfinv=1/differentiate(f,x1,args=args,kwargs=kwargs)
+                dfinv=1.0/gtb.differentiate(f,x1,args=args,kwargs=kwargs)
             except Exception:
                 try:
                     dfinv=(x1-x0)/(f1-f0)
                 except Exception:
-                    dfinv=0
-        delta_x=-dfinv*f1
+                    dfinv=0.0
+        
+        if inform:
+            F.append(nf1)
+        min_flag=(nf1<=errtol)
+        extreme_flag=(abs(x1-x0)<=zerotol)
         x0=x1
         f0=f1
         nf0=nf1
-        
-        x1=x1+alpha*delta_x
-        f1=f(x1,*args,**kwargs)
-        nf1=abs(f1)
-        if adapt and abs(delta_x)>0:
-            nf=lambda x:abs(f(x,*args,**kwargs))
-            grad_nf0=differentiate(nf,x0)
-            a=0
-            b=np.inf
-            bisect_count=0
-            wolfe_flag=False
-            double_flag=True
-            while not wolfe_flag and bisect_count<100:
-                if nf(x0+alpha*delta_x)>nf0+c1*alpha*delta_x*grad_nf0:
-                    b=alpha
-                    alpha=0.5*(a+b)
-                    double_flag=False
-                elif delta_x*differentiate(nf,x0+alpha*delta_x)<c2*delta_x*grad_nf0:
-                    a=alpha
-                    if b<np.inf:
-                        alpha=0.5*(a+b)
-                    else:
-                        alpha=2*a
-                    double_flag=False
-                else:
-                    if double_flag and alpha<=1:
-                        alpha*=2
-                    else:
-                        wolfe_flag=True
-                bisect_count+=1
-            x1=x0+alpha*delta_x
-            f1=f(x1,*args,**kwargs)
-            nf1=abs(f1)
-        if inform:
-            F.append(nf1)
         newt_count+=1
 
-    if nf1>errtol and abs(x1-x0)>errtol:
+    if not min_flag and not extreme_flag:
         if inform:
             print("Unable to find extremum or minimum after %i iterations"%newt_count)
             ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
@@ -546,12 +569,12 @@ def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_bro
         return None
     else:
         if inform:
-            if nf1<=errtol:
+            if min_flag:
                 print("Root found after %i iterations"%newt_count)
-                print("|f(x)| = %0.6f"%nf1)
+                print("|f(x)| = %0.6f"%nf0)
             else:
                 print("Minumum found after %i iterations"%newt_count)
-                print("|f(x)| = %0.6f"%nf1)
+                print("|f(x)| = %0.6f"%nf0)
             ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
             ax.plot([i for i in range(len(F))],F)
             ax.set_title("Function Norm per Iteration",fontdict=font)
@@ -561,7 +584,7 @@ def newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_bro
             ax.yaxis.set_tick_params(labelsize=16)
         return x1
 
-def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
+def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,zerotol=1e-8,maxlevel=100,mode="bad_broyden",adapt=True,inform=False):
     #This method performs a Newton-Raphson approximation of the root of the 
     #function f:R^n->R^n, using vector x0 as it's initial guess.
     #Variable errtol sets the minimum norm that the function can take on before
@@ -577,19 +600,24 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
     #If variable inform is set to true, the method relays information on 
     #it's converge behavior to the user. 
     
-    x0=np.asarray(x0)
-    f0=f(x0,*args,**kwargs)
-    nf0=npla.norm(f0)
-    
     if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
-        if ("list" in type(f0).__name__) or ("tuple" in type(f0).__name__) or ("ndarray" in type(f0).__name__):
-            if len(x0)==len(f0):
-                dim=len(x0)
+        x0=np.asarray(x0)
+        try:
+            f0=f(x0,*args,**kwargs)
+            nf0=npla.norm(f0)
+        
+            if ("list" in type(f0).__name__) or ("tuple" in type(f0).__name__) or ("ndarray" in type(f0).__name__):
+                if len(x0)==len(f0):
+                    dim=len(x0)
+                else:
+                    if inform:
+                        print("Error: unable to apply Newton-Raphson iteration to f:R^%i->R^%i"%(len(x0),len(f0)))
+                    return None
             else:
                 if inform:
-                    print("Error: unable to apply Newton-Raphson iteration to f:R^%i->R^%i"%(len(x0),len(f0)))
+                    print("Error: unable to apply Newton-Raphson iteration to this function")
                 return None
-        else:
+        except Exception:
             if inform:
                 print("Error: unable to apply Newton-Raphson iteration to this function")
             return None
@@ -598,64 +626,47 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
             print("Error: unable to apply Newton-Raphson iteration to this function")
         return None
     
-    from toolbox.matrixtoolbox import jacobian,grad
-    
-    c1=1e-4
-    c2=0.9
-    try:
-        dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
-    except Exception:
-        dfinv=np.zeros(dim,dim)
-    delta_x=-np.dot(dfinv,f0)
-    x1=x0+delta_x
-    f1=f(x1,*args,**kwargs)
-    nf1=npla.norm(f1)
-    alpha=1.0
-    
-    if adapt and npla.norm(delta_x)>0:
-        nf=lambda x:npla.norm(f(x,*args,**kwargs))
-        grad_nf0=grad(nf,x0)
-        a=0
-        b=np.inf
-        bisect_count=0
-        wolfe_flag=False
-        double_flag=True
-        while not wolfe_flag and bisect_count<100:
-            if nf(x0+alpha*delta_x)>nf0+c1*alpha*np.dot(delta_x,grad_nf0):
-                b=alpha
-                alpha=0.5*(a+b)
-                double_flag=False
-            elif np.dot(delta_x,grad(nf,x0+alpha*delta_x))<c2*np.dot(delta_x,grad_nf0):
-                a=alpha
-                if b<np.inf:
-                    alpha=0.5*(a+b)
-                else:
-                    alpha=2*a
-                double_flag=False
-            else:
-                if double_flag and alpha<=1:
-                    alpha*=2
-                else:
-                    wolfe_flag=True
-            bisect_count+=1
-        x1=x0+alpha*delta_x
-        f1=f(x1,*args,**kwargs)
-        nf1=npla.norm(f1)
-    
     mode=mode.lower()
     if "broyden" in mode:
         if "g" in mode:
             mode="good_broyden"
         else:
             mode="bad_broyden"
+        try:
+            dfinv=npla.inv(mtb.jacobian(f,x0,args=args,kwargs=kwargs))
+        except Exception:
+            dfinv=np.zeros(dim,dim)
     else:
         mode="newton_raphson"
+        try:
+            dfinv=mtb.jacobian(f,x0,args=args,kwargs=kwargs)
+        except Exception:
+            dfinv=np.zeros(dim,dim)
+        
+    errtol=abs(errtol)
+    zerotol=abs(zerotol)
+    maxlevel=abs(maxlevel)
     
-    newt_count=1
+    alpha=1.0
+    min_flag=(nf0<=errtol)
+    extreme_flag=False
+    newt_count=0
     if inform:
-        F=[nf0,nf1]
-    
-    while nf1>errtol and npla.norm(x1-x0)>errtol and newt_count<maxlevel:
+        F=[nf0]
+    while not min_flag and not extreme_flag and newt_count<maxlevel:
+        if mode=="newton_raphson":
+            delta_x=-npla.solve(dfinv,f0)            
+        else:
+            delta_x=-np.dot(dfinv,f0)
+        if adapt:# and np.inner(f0,np.dot(mtb.jacobian(f,x0,args=args,kwargs=kwargs),delta_x))<-zerotol:
+            if mode=="newton_raphson":
+                alpha=multi_line_search(lambda X:npla.norm(f(X,*args,**kwargs)),x0,delta_x)
+            else:
+                alpha=multi_line_search(lambda X:npla.norm(f(X,*args,**kwargs)),x0,delta_x,wolfe_mode=False)
+        x1=x0+alpha*delta_x
+        f1=f(x1,*args,**kwargs)
+        nf1=npla.norm(f1)
+        
         if mode=="bad_broyden":
             try:
                 dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/sum((f1-f0)**2),f1-f0)
@@ -664,7 +675,7 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
                     dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/np.dot(x1-x0,np.dot(dfinv,f1-f0)),np.dot(x1-x0,dfinv))
                 except Exception:
                     try:
-                        dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+                        dfinv=npla.inv(mtb.jacobian(f,x0,args=args,kwargs=kwargs))
                     except Exception:
                         dfinv=np.zeros((dim,dim))
         elif mode=="good_broyden":
@@ -675,61 +686,25 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
                     dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/sum((f1-f0)**2),f1-f0)
                 except Exception:
                     try:
-                        dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+                        dfinv=npla.inv(mtb.jacobian(f,x0,args=args,kwargs=kwargs))
                     except Exception:
                         dfinv=np.zeros((dim,dim))
         else:
             try:
-                dfinv=npla.inv(jacobian(f,x0,args=args,kwargs=kwargs))
+                dfinv=mtb.jacobian(f,x1,args=args,kwargs=kwargs)
             except Exception:
-                try:
-                    dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/sum((f1-f0)**2),f1-f0)
-                except Exception:
-                    try:
-                        dfinv=dfinv+np.outer(((x1-x0)-np.dot(dfinv,f1-f0))/np.dot(x1-x0,np.dot(dfinv,f1-f0)),np.dot(x1-x0,dfinv))
-                    except Exception:
-                        dfinv=np.zeros((dim,dim))
+                dfinv=np.zeros((dim,dim))
 
-        delta_x=-np.dot(dfinv,f1)
+        if inform:
+            F.append(nf1)
+        min_flag=(nf1<=errtol)
+        extreme_flag=(npla.norm(x1-x0)<=zerotol)
         x0=x1.copy()
         f0=f1.copy()
         nf0=nf1.copy()
-        x1=x1+alpha*delta_x
-        f1=f(x1,*args,**kwargs)
-        nf1=npla.norm(f1)
-        if adapt and npla.norm(delta_x)>0:
-            nf=lambda x:npla.norm(f(x,*args,**kwargs))
-            grad_nf0=grad(nf,x0)
-            a=0
-            b=np.inf
-            bisect_count=0
-            wolfe_flag=False
-            double_flag=True
-            while not wolfe_flag and bisect_count<100:
-                if nf(x0+alpha*delta_x)>nf0+c1*alpha*np.dot(delta_x,grad_nf0):
-                    b=alpha
-                    alpha=0.5*(a+b)
-                    double_flag=False
-                elif np.dot(delta_x,grad(nf,x0+alpha*delta_x))<c2*np.dot(delta_x,grad_nf0):
-                    a=alpha
-                    if b<np.inf:
-                        alpha=0.5*(a+b)
-                    else:
-                        alpha=2*a
-                    double_flag=False
-                else:
-                    if double_flag and alpha<=1:
-                        alpha*=2
-                    else:
-                        wolfe_flag=True
-                bisect_count+=1
-            x1=x0+alpha*delta_x
-            f1=f(x1,*args,**kwargs)
-            nf1=npla.norm(f1)
-        if inform:
-            F.append(nf1)
         newt_count+=1
-    if nf1>errtol and npla.norm(x1-x0)>errtol:
+        
+    if not min_flag and not extreme_flag:
         if inform:
             print("Unable to find root or critical point after %i iterations"%newt_count)
             ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
@@ -742,7 +717,7 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
         return None
     else:
         if inform:
-            if nf1<=errtol:
+            if min_flag:
                 print("Root found after %i iterations"%newt_count)
                 print("||f(x)||_2 = %0.6f"%nf1)
             else:
@@ -757,7 +732,7 @@ def multi_Newton_Raphson(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="b
             ax.yaxis.set_tick_params(labelsize=16)
         return x1
 
-def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=True,inform=False):
+def minimize(f,x0,args=[],kwargs={},errtol=1e-6,zerotol=1e-8,maxlevel=100,mode="bfgs",adapt=True,inform=False):
     #This method performs a BFGS approximation of the minimum of the function 
     #f:R->R, using vector x0 as it's initial guess. Variable errtol sets the
     #minimum norm that the function gradient can take on before an approximate
@@ -790,15 +765,22 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
             print("Error: unable to apply Newton-Raphson iteration to this function")
         return None
     
+    errtol=abs(errtol)
+    zerotol=abs(zerotol)
+    maxlevel=abs(maxlevel)
+    
     mode=mode.lower()
     if ("newt" in mode) or ("raph" in mode):
         mode="newton_raphson"    
         try:
             dfinv=1.0/gtb.differentiate(df,x0,args=args,kwargs=kwargs)
         except Exception:
-            dfinv=0.0
+            try:
+                dfinv=1.0/ndf0
+            except Exception:
+                dfinv=0.0
     else:
-        dfinv=1.0
+        dfinv=1.0/ndf0
         mode="bfgs"
     
     alpha=1.0
@@ -809,11 +791,11 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
         F=[ndf0]
     while not min_flag and not extreme_flag and newt_count<maxlevel:
         delta_x=-dfinv*df0
-        if adapt and delta_x*df0<0:
+        if adapt and delta_x*df0<-zerotol:
             if mode=="newton_raphson":
-                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,mode="wolfe")
+                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs)
             else:
-                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,mode="goldstein")
+                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,wolfe_mode=False)
         x1=x0+alpha*delta_x
         df1=df(x1)
         ndf1=abs(df1)
@@ -822,17 +804,23 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
                 dfinv=1.0/gtb.differentiate(df,x0,args=args,kwargs=kwargs)
             except Exception:
                 try:
-                    dfinv=delta_x/df1-df0
+                    dfinv=delta_x/(df1-df0)
                 except Exception:
-                    dfinv=0.0
+                    try:
+                        dfinv=1.0/ndf1
+                    except Exception:
+                        dfinv=0.0
         else:
             try:
-                dfinv=delta_x/df1-df0
+                dfinv=delta_x/(df1-df0)
             except Exception:
                 try:
                     dfinv=1.0/gtb.differentiate(df,x0,args=args,kwargs=kwargs)
                 except Exception:
-                    dfinv=0.0
+                    try:
+                        dfinv=1.0/ndf1
+                    except Exception:
+                        dfinv=0.0
 
         if inform:
             F.append(ndf1)
@@ -871,7 +859,7 @@ def minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=T
             ax.yaxis.set_tick_params(labelsize=16)
         return x0
 
-def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",adapt=True,inform=False):
+def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,zerotol=1e-8,maxlevel=100,mode="bfgs",adapt=True,inform=False):
     #This method performs a BFGS approximation of the minimum of the function 
     #f:R^n->R, using vector x0 as it's initial guess. Variable errtol sets the
     #minimum norm that the function gradient can take on before an approximate
@@ -884,7 +872,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     #conditions to damp (or accelerate) the Newton-Raphson iteration to coerce
     #global converge to a minimum or minimum of the function's gradient.
     #If variable inform is set to True, the method relays information on 
-    #it's converge behavior to the user.
+    #it's converge behavior to the user. 
     
     x0=np.asarray(x0)
     df=lambda X:mtb.grad(f,X,args=args,kwargs=kwargs)
@@ -912,15 +900,22 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
             print("Error: unable to apply Newton-Raphson iteration to this function")
         return None
     
+    errtol=abs(errtol)
+    zerotol=abs(zerotol)
+    maxlevel=abs(maxlevel)
+    
     mode=mode.lower()
     if ("newt" in mode) or ("raph" in mode):
         mode="newton_raphson"    
         try:
-            dfinv=npla.inv(mtb.jacobian(df,x0,args=args,kwargs=kwargs))
+            dfinv=mtb.jacobian(df,x0,args=args,kwargs=kwargs)
         except Exception:
-            dfinv=np.zeros(dim,dim)
+            if abs(ndf0)>zerotol:
+                dfinv=ndf0*np.identity(dim)
+            else:   
+                dfinv=np.zeros(dim,dim)
     else:
-        dfinv=np.identity(dim)
+        dfinv=ndf0*np.identity(dim)
         if "broyden" in mode:
             mode="broyden"
         elif "dfp" in mode:
@@ -937,25 +932,25 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
     if inform:
         F=[ndf0]
     while not min_flag and not extreme_flag and newt_count<maxlevel:
-        delta_x=-np.dot(dfinv,df0)
+        if mode=="newton_raphson":
+            delta_x=-npla.solve(dfinv,df0)    
+        else:    
+            delta_x=-np.dot(dfinv,df0)
         if adapt and np.inner(delta_x,df0)<0:
             if mode=="newton_raphson":
-                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,mode="wolfe")
+                alpha=multi_line_search(f,x0,delta_x,args=args,kwargs=kwargs)
             else:
-                alpha=line_search(f,x0,delta_x,args=args,kwargs=kwargs,mode="goldstein")
+                alpha=multi_line_search(f,x0,delta_x,args=args,kwargs=kwargs,wolfe_mode=False)
         x1=x0+alpha*delta_x
         df1=df(x1)
         ndf1=npla.norm(df1)
         if mode=="newton_raphson":
             try:
-                dfinv=npla.inv(mtb.jacobian(df,x0,args=args,kwargs=kwargs))
+                dfinv=mtb.jacobian(df,x0,args=args,kwargs=kwargs)
             except Exception:
-                try:
-                    delta_df=df1-df0
-                    inner_df=np.inner(delta_df,delta_x)
-                    temp_matrix=np.dot(dfinv,np.outer(delta_df,delta_x))
-                    dfinv=dfinv+(np.inner(delta_df,delta_x)+np.inner(delta_df,np.dot(dfinv,delta_df)))/inner_df**2*np.outer(delta_x,delta_x)-(temp_matrix+np.transpose(temp_matrix))/inner_df
-                except Exception:
+                if abs(ndf1)>zerotol:
+                    dfinv=ndf1*np.identity(dim)
+                else:
                     dfinv=np.zeros((dim,dim))
         else:
             try:
@@ -977,7 +972,10 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
                 try:
                     dfinv=npla.inv(mtb.jacobian(df,x0,args=args,kwargs=kwargs))
                 except Exception:
-                    dfinv=np.zeros((dim,dim))
+                    try:
+                        dfinv=np.identity(dim)/ndf1
+                    except Exception:
+                        dfinv=np.zeros((dim,dim))
 
         if inform:
             F.append(ndf1)
@@ -1016,21 +1014,7 @@ def multi_minimize(f,x0,args=[],kwargs={},errtol=1e-6,maxlevel=100,mode="bfgs",a
             ax.yaxis.set_tick_params(labelsize=16)
         return x0
 
-def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,inform=False,mode="broyden"):
-    #This method performs an active set SQP algorithm of the minimum of the function 
-    #f:R^n->R, using vector x0 as it's initial guess under equality and inequality constraints.
-    #Variable errtol sets the minimum norm that the function gradient can take on
-    #before an approximate of the minimum is made. Variable zerotol removes roundoff errors.
-    #Variable maxlevel determines the maximum number of
-    #iterations the method can perform before it is forced to end.
-    #If variable mode is set to "newton_raphson", the inverse Hessian is
-    #computed every iteration. If variable mode is set to "bfgs", the
-    #inverse Hessian is approximated using the BFGS method (default).
-    #If variable adapt is set to True, the method uses the weak Wolfe 
-    #conditions to damp (or accelerate) the Newton-Raphson iteration to coerce
-    #global converge to a minimum or minimum of the function's gradient.
-    #If variable inform is set to True, the method relays information on 
-    #it's converge behavior to the user. 
+def sqp(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,inform=False,mode="broyden"):
     if ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
         x0=np.asarray(x0)
         n=len(x0)
@@ -1084,6 +1068,10 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
     else:
         mode="newton_raphson"
     
+    errtol=abs(errtol)
+    zerotol=abs(zerotol)
+    maxlevel=abs(maxlevel)
+    
     if m_i>0:
         res_G=g(x0)
         A=[i for i in range(m_i) if res_G[i]>=-abs(zerotol)]
@@ -1123,11 +1111,17 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
             delta_f[n+m_e:]=g_A(x)
         return delta_f
         
+    D_F=delta_f(x0)
     if mode=="newton_raphson":
         B=H(x0)
     else:
-        B=npla.inv(H(x0))
-    D_F=delta_f(x0)
+        try:
+            B=npla.inv(H(x0))
+        except npla.LinAlgError as err:
+            if "Singular matrix" in str(err):
+                B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+            else:
+                raise
     if inform:
         F=[f(x0)]
     sqp_bool=True
@@ -1135,7 +1129,7 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
     while sqp_bool and count<maxlevel:
         if mode=="newton_raphson":
             try:
-                res_d=npla.solve(B,-1.0*D_F)
+                res_d=-npla.solve(B,D_F)
             except npla.LinAlgError as err:
                 if "Singular matrix" in str(err):
                     res_d=-1.0*D_F/npla.norm(D_F)
@@ -1158,11 +1152,17 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
                         A=A[:i]+A[i+1:]
                         m_A-=1
                         sqp_bool=True
+                        D_F=delta_f(x0)
                         if mode=="newton_raphson":
                             B=H(x0)
                         else:
-                            B=npla.inv(H(x0))
-                        D_F=delta_f(x0)
+                            try:
+                                B=npla.inv(H(x0))
+                            except npla.LinAlgError as err:
+                                if "Singular matrix" in str(err):
+                                    B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                                else:
+                                    raise
                         break
         else:
             alpha=1.0
@@ -1205,8 +1205,14 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
                             res3=np.dot(B,np.outer(res1,res_d))
                             B=B+(res2+np.inner(res1,np.dot(B,res1)))*np.outer(res_d,res_d)/(res2**2)-(res3+res3.T)/res2
                         except Exception:
-                            B=npla.inv(H(x0))
                             D_F=delta_f(x0)
+                            try:
+                                B=npla.inv(H(x0))
+                            except npla.LinAlgError as err:
+                                if "Singular matrix" in str(err):
+                                    B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                                else:
+                                    raise
                     elif mode=="broyden":
                         try:
                             res_d=alpha*res_d
@@ -1216,8 +1222,14 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
                             res2=np.dot(B,res1)
                             B=B+np.dot(np.outer((res-res2),res),B)/np.inner(res,res2)
                         except Exception:
-                            B=npla.inv(H(x0))
                             D_F=delta_f(x0)
+                            try:
+                                B=npla.inv(H(x0))
+                            except npla.LinAlgError as err:
+                                if "Singular matrix" in str(err):
+                                    B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                                else:
+                                    raise
                     elif mode=="dfp":
                         try:
                             res_d=alpha*res_d
@@ -1227,8 +1239,14 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
                             res2=np.dot(B,res)
                             B=B+np.outer(res,res)/np.inner(res,res1)-np.outer(res2,res2)/np.inner(res1,np.dot(B,res1))
                         except Exception:
-                            B=npla.inv(H(x0))
                             D_F=delta_f(x0)
+                            try:
+                                B=npla.inv(H(x0))
+                            except npla.LinAlgError as err:
+                                if "Singular matrix" in str(err):
+                                    B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                                else:
+                                    raise
                     elif mode=="sr1":
                         try:
                             res_d=alpha*res_d
@@ -1238,14 +1256,32 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
                             res2=res-np.dot(B,res)
                             B=B+np.outer(res2,res)/np.inner(res2,res)
                         except Exception:
-                            B=npla.inv(H(x0))
                             D_F=delta_f(x0)
+                            try:
+                                B=npla.inv(H(x0))
+                            except npla.LinAlgError as err:
+                                if "Singular matrix" in str(err):
+                                    B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                                else:
+                                    raise
                     else:
-                        B=npla.inv(H(x0))
                         D_F=delta_f(x0)
+                        try:
+                            B=npla.inv(H(x0))
+                        except npla.LinAlgError as err:
+                            if "Singular matrix" in str(err):
+                                B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                            else:
+                                raise
                 else:
-                    B=npla.inv(H(x0))
                     D_F=delta_f(x0)
+                    try:
+                        B=npla.inv(H(x0))
+                    except npla.LinAlgError as err:
+                        if "Singular matrix" in str(err):
+                            B=np.identity(n+m_e+m_A)/npla.norm(D_F)
+                        else:
+                            raise
         if inform:
             F.append(f(x0))
         count+=1
@@ -1256,7 +1292,7 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
             print("f(x) = %0.6f"%f(x0))
             ax1=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
             ax1.plot([i for i in range(len(F))],F)
-            ax1.set_title("Function Value per Iteration"%mode,fontdict=font)
+            ax1.set_title("Function Value per Iteration (%s)"%mode,fontdict=font)
             ax1.set_xlabel("Iteration",fontsize=16,rotation=0)
             ax1.set_ylabel("Function Value",fontsize=16)
             ax1.xaxis.set_tick_params(labelsize=16)
@@ -1270,9 +1306,105 @@ def minimize_constrained(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e
                 print("Converged to suboptimal point after %i iterations using %s"%(count,mode))
             ax=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
             ax.plot([i for i in range(len(F))],F)
-            ax.set_title("Function Value per Iteration",fontdict=font)
+            ax.set_title("Function Value per Iteration (%s)"%mode,fontdict=font)
             ax.set_xlabel("Iteration",fontsize=16,rotation=0)
             ax.set_ylabel("Function Value",fontsize=16)
             ax.xaxis.set_tick_params(labelsize=16)
             ax.yaxis.set_tick_params(labelsize=16)
         return None
+    
+def simulated_annealing(f,x0,T=100,alpha_T=0.95,inform=False,adapt=False):
+    if ("int" in type(x0).__name__) or ("float" in type(x0).__name__):
+        n=0
+        try:
+            f0=f(x0)
+            if ("int" not in type(f0).__name__) and ("float" not in type(f0).__name__):
+                if inform:
+                    print("Error: objective function f is not a R^%i->R function"%n)
+                return None
+        except Exception:
+            if inform:
+                print("Error: unable to initialize algorithm by applying objective function f to point x0")
+            return None
+    
+    elif ("list" in type(x0).__name__) or ("tuple" in type(x0).__name__) or ("ndarray" in type(x0).__name__):
+        x0=np.asarray(x0)
+        n=len(x0)
+        try:
+            f0=f(x0)
+            if ("int" not in type(f0).__name__) and ("float" not in type(f0).__name__):
+                if inform:
+                    print("Error: objective function f is not a R^%i->R function"%n)
+                return None
+        except Exception:
+            if inform:
+                print("Error: unable to initialize algorithm by applying objective function f to point x0")
+            return None
+    else:
+        if inform:
+            print("Error: unable to initialize SQP algorithm with inputted point x0.")
+        return None
+    
+    if alpha_T>=1.0 or alpha_T<=0:
+        alpha_T=0.95
+    T=max(T,1.0)
+    
+    if inform:
+        F=[]
+    X=[]
+    count=0
+    maxlevel=(np.log(1e-6)-np.log(T))/np.log(alpha_T)
+    if n==0:
+        while count<maxlevel:
+            delta_x=np.random.normal(loc=0.0,scale=1.0)
+            if adapt:
+                alpha_delta_x=line_search(f,x0,delta_x)
+                x1=x0+alpha_delta_x*delta_x
+            else:
+                x1=x0+delta_x
+            f1=f(x1)
+            res_f=f0-f1
+            if res_f>=0:
+                x0=x1
+                f0=f1
+                X.append(x0)
+            elif np.random.rand()<=np.exp(res_f/T):
+                x0=x1
+                f0=f1
+                X.append(x0)
+            T=alpha_T*T
+            count+=1
+            if inform:
+                F.append(f0)
+    else:
+        while count<maxlevel:
+            delta_x=np.random.normal(loc=0.0,scale=1.0,size=n)
+            if adapt:
+                alpha_delta_x=multi_line_search(f,x0,delta_x)
+                x1=x0+alpha_delta_x*delta_x
+            else:
+                x1=x0+delta_x
+            f1=f(x1)
+            res_f=f0-f1
+            if res_f>=0:
+                x0=x1.copy()
+                f0=f1
+            elif np.random.rand()<=np.exp(res_f/T):
+                x0=x1.copy()
+                f0=f1
+            T=alpha_T*T
+            count+=1
+            if inform:
+                F.append(f0)
+            
+    if inform:
+        print("Heuristic minimum found after %i iterations"%count)
+        print("f(x) = %0.6f"%f0)
+        ax1=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111)
+        ax1.plot([i for i in range(len(F))],F)
+        ax1.set_title("Function Value per Iteration",fontdict=font)
+        ax1.set_xlabel("Iteration",fontsize=16,rotation=0)
+        ax1.set_ylabel("Function Value",fontsize=16)
+        ax1.xaxis.set_tick_params(labelsize=16)
+        ax1.yaxis.set_tick_params(labelsize=16)
+    return x0
