@@ -1091,7 +1091,8 @@ def sqp(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,i
     def H(x):
         try:
             B=np.zeros((n+m_e+m_A,n+m_e+m_A))
-            B[:n,:n]=mtb.jacobian(lambda X:mtb.grad(f,X),x)
+            #B[:n,:n]=mtb.jacobian(lambda X:mtb.grad(f,X),x)
+            B[:n,:n]=mtb.hessian(f,x)
             if m_e>0:
                 B[n:n+m_e,:n]=mtb.jacobian(h,x)
                 B[:n,n:n+m_e]=B[n:n+m_e,:n].T
@@ -1110,7 +1111,7 @@ def sqp(f,x0,h=lambda X:[],g=lambda X:[],errtol=1e-6,zerotol=1e-8,maxlevel=100,i
         if m_A>0:
             delta_f[n+m_e:]=g_A(x)
         return delta_f
-        
+    
     D_F=delta_f(x0)
     if mode=="newton_raphson":
         B=H(x0)
