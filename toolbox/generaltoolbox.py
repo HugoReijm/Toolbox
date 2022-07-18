@@ -58,69 +58,247 @@ def hammersley(N,dim,points=True):
     else:
         return [np.array([n/N for n in range(N+1)])]+[np.array([Phi(n,B[i-1]) for n in range(N+1)]) for i in range(1,dim)]
 
-def differentiate(f,x,args=[],kwargs={},h=1e-3,variableDim=0):
+def differentiate(f,x,args=[],kwargs={},h=1e-6,variable_Dim=0):
     #This method approximates the (partial) derivative of function f:R^n->R
     #at point x with respect the the (variableDim)th variable,
-    #using a 5-point-stencil whenever possible.
+    #using a complex step whenever possible.
     
     if ("int" in type(x).__name__) or ("float" in type(x).__name__):
-        x2hminus=x-2*h
-        xhminus=x-h
-        xhplus=x+h
-        x2hplus=x+2*h
-    elif ("list" in type(x).__name__):
-        variableDim=max(min(variableDim,len(x)),0)
-        x2hminus=x[:variableDim]+[x[variableDim]-2*h]+x[variableDim+1:]
-        xhminus=x[:variableDim]+[x[variableDim]-h]+x[variableDim+1:]
-        xhplus=x[:variableDim]+[x[variableDim]+h]+x[variableDim+1:]
-        x2hplus=x[:variableDim]+[x[variableDim]+2*h]+x[variableDim+1:]
-    elif ("tuple" in type(x).__name__):
-        variableDim=max(min(variableDim,len(x)),0)
-        x2hminus=x[:variableDim]+tuple([x[variableDim]-2*h])+x[variableDim+1:]
-        xhminus=x[:variableDim]+tuple([x[variableDim]-h])+x[variableDim+1:]
-        xhplus=x[:variableDim]+tuple([x[variableDim]+h])+x[variableDim+1:]
-        x2hplus=x[:variableDim]+tuple([x[variableDim]+2*h])+x[variableDim+1:]
-    elif ("ndarray" in type(x).__name__):
-        variableDim=max(min(variableDim,len(x)),0)
-        x2hminus=np.concatenate([x[:variableDim],[x[variableDim]-2*h],x[variableDim+1:]])
-        xhminus=np.concatenate([x[:variableDim],[x[variableDim]-h],x[variableDim+1:]])
-        xhplus=np.concatenate([x[:variableDim],[x[variableDim]+h],x[variableDim+1:]])
-        x2hplus=np.concatenate([x[:variableDim],[x[variableDim]+2*h],x[variableDim+1:]])
+        x=float(x)
+        try:
+            xhplus=x+h*1j
+            return np.imag(f(xhplus,*args,**kwargs))/h
+        except Exception:
+            try:
+                xhminus=x-h*1j
+                return np.imag(f(xhminus,*args,**kwargs))/-h
+            except Exception:
+                h=max(1e-6,h)
+                try:
+                    x2hminus=x-2*h
+                    x2hplus=x+2*h
+                    fx2hminus=f(x2hminus,*args,**kwargs)
+                    fx2hplus=f(x2hplus,*args,**kwargs)
+                    try:
+                        xhminus=x-h
+                        xhplus=x+h
+                        fxhminus=f(xhminus,*args,**kwargs)
+                        fxhplus=f(xhplus,*args,**kwargs)
+                        return (-fx2hplus+8*fxhplus-8*fxhminus+fx2hminus)/(12*h)
+                    except Exception:
+                        return (fx2hplus-fx2hminus)/(4*h)
+                except Exception:
+                    try:
+                        xhminus=x-h
+                        fxhminus=f(xhminus,*args,**kwargs)
+                        try:
+                            xhplus=x+h
+                            fxhplus=f(xhplus,*args,**kwargs)
+                            return (fxhplus-fxhminus)/(2*h)
+                        except Exception:
+                            try:
+                                fx=f(x,*args,**kwargs)
+                                return (fx-fxhminus)/h
+                            except Exception:
+                                print("Error: Function is not defined in point ["+", ".join([str(elem) for elem in x])+"]")
+                                return None
+                    except Exception:
+                        try:
+                            xhplus=x+h
+                            fxhplus=f(xhplus,*args,**kwargs)
+                            try:
+                                fx=f(x,*args,**kwargs)
+                                return (fxhplus-fx)/h
+                            except Exception:
+                                print("Error: Function is not defined in point ["+", ".join([str(elem) for elem in x])+"]")
+                                return None
+                        except Exception:
+                            print("Error: Function can not be differentiated in point ["+", ".join([str(elem) for elem in x])+"]")
+                            return None
+                        
+    elif ("list" in type(x).__name__) or ("tuple" in type(x).__name__) or ("ndarray" in type(x).__name__):
+        x=np.asarray(x,dtype=np.float)
+        variable_Dim=max(min(variable_Dim,len(x)),0)
+        try:
+            xhplus=np.asarray(x,dtype=complex)
+            xhplus[variable_Dim]+=h*1j
+            return np.imag(f(xhplus,*args,**kwargs))/h
+        except Exception:
+            try:
+                xhminus=np.asarray(x,dtype=complex)
+                xhminus[variable_Dim]-=h*1j
+                return np.imag(f(xhminus,*args,**kwargs))/-h
+            except Exception:
+                h=max(1e-6,h)
+                try:
+                    x2hminus=x.copy()
+                    x2hminus[variable_Dim]-=2*h
+                    x2hplus=x.copy()
+                    x2hplus[variable_Dim]+=2*h
+                    fx2hminus=f(x2hminus,*args,**kwargs)
+                    fx2hplus=f(x2hplus,*args,**kwargs)
+                    try:
+                        xhminus=x.copy()
+                        xhminus[variable_Dim]-=h
+                        xhplus=x.copy()
+                        xhplus[variable_Dim]+=h
+                        fxhminus=f(xhminus,*args,**kwargs)
+                        fxhplus=f(xhplus,*args,**kwargs)
+                        return (-fx2hplus+8*fxhplus-8*fxhminus+fx2hminus)/(12*h)
+                    except Exception:
+                        return (fx2hplus-fx2hminus)/(4*h)
+                except Exception:
+                    try:
+                        xhminus=x.copy()
+                        xhminus[variable_Dim]-=h
+                        fxhminus=f(xhminus,*args,**kwargs)
+                        try:
+                            xhplus=x.copy()
+                            xhplus[variable_Dim]+=h
+                            fxhplus=f(xhplus,*args,**kwargs)
+                            return (fxhplus-fxhminus)/(2*h)
+                        except Exception:
+                            try:
+                                fx=f(x,*args,**kwargs)
+                                return (fx-fxhminus)/h
+                            except Exception:
+                                print("Error: Function is not defined in point ["+", ".join([str(elem) for elem in x])+"]")
+                                return None
+                    except Exception:
+                        try:
+                            xhplus=x.copy()
+                            xhplus[variable_Dim]+=h
+                            fxhplus=f(xhplus,*args,**kwargs)
+                            try:
+                                fx=f(x,*args,**kwargs)
+                                return (fxhplus-fx)/h
+                            except Exception:
+                                print("Error: Function is not defined in point ["+", ".join([str(elem) for elem in x])+"]")
+                                return None
+                        except Exception:
+                            print("Error: Function can not be differentiated in point ["+", ".join([str(elem) for elem in x])+"]")
+                            return None
     else:
         print("Error: point x is of an incompatible type %s"%type(x).__name__)
         return None
-    
-    try:
-        fx=f(x,*args,**kwargs)
-    except:
-        print(x)
-        print("Error: Function is not defined on point x")
-        return None
-    
-    try:
-        fx2hminus=f(x2hminus,*args,**kwargs)
-        fx2hplus=f(x2hplus,*args,**kwargs)
+
+def double_differentiate(f,x,args=[],kwargs={},h=1e-3,variable_Dim_1=0,variable_Dim_2=0):
+    if ("int" in type(x).__name__) or ("float" in type(x).__name__):
+        x=float(x)
         try:
-            fxhminus=f(xhminus,*args,**kwargs)
+            fx=f(x,*args,**kwargs)
+        except Exception:
+            print("Error: function not defined on inputted point x")
+            return None
+        try:
+            xhplus=x+h
             fxhplus=f(xhplus,*args,**kwargs)
-            return (-fx2hplus+8*fxhplus-8*fxhminus+fx2hminus)/(12*h)
-        except:
-            return (fx2hplus-fx2hminus)/(4*h)
-    except:
-        try:
-            fxhminus=f(xhminus,*args,**kwargs)
             try:
-                fxhplus=f(xhplus,*args,**kwargs)
-                return (fxhplus-fxhminus)/(2*h)
-            except:
-                return (fx-fxhminus)/h
-        except:
+                xhminus=x-h
+                fxhminus=f(xhminus,*args,**kwargs)
+                return (fxhplus-2*fx+fxhminus)/(h**2)
+            except Exception:
+                try:
+                    x2hplus=x+2*h
+                    fx2hplus=f(x2hplus,*args,**kwargs)
+                    try:
+                        x3hplus=x+3*h
+                        fx3hplus=f(x3hplus,*args,**kwargs)
+                        return (2*fx-5*fxhplus+4*fx2hplus-fx3hplus)/(h**2)
+                    except Exception:
+                        return (fx-2*fxhplus+fx2hplus)/(h**2)
+                except Exception:
+                    print("Error: unable to find second derivative")
+                    return None
+        except Exception:
             try:
-                fxhplus=f(xhplus,*args,**kwargs)
-                return (fxhplus-fx)/h
-            except:
-                print("Error: Function can not be differentiated in point ["+", ".join([str(elem) for elem in x])+"]")
+                xhminus=x-h
+                fxhminus=f(xhminus,*args,**kwargs)
+                x2hminus=x-2*h
+                fx2hminus=f(x2hminus,*args,**kwargs)
+                try:
+                    x3hminus=x-3*h
+                    fx3hminus=f(x3hminus,*args,**kwargs)
+                    return (2*fx-5*fxhminus+4*fx2hminus-fx3hminus)/(h**2)
+                except Exception:
+                    return (fx-2*fxhminus+fx2hminus)/(h**2)
+            except Exception:
+                print("Error: unable to find second derivative")
                 return None
+            
+    elif ("list" in type(x).__name__) or ("tuple" in type(x).__name__) or ("ndarray" in type(x).__name__):
+        x=np.asarray(x,dtype=np.float)
+        try:
+            fx=f(x,*args,**kwargs)
+        except Exception:
+            print("Error: function not defined on inputted point x")
+            return None
+        variable_Dim_1=max(min(variable_Dim_1,len(x)),0)
+        variable_Dim_2=max(min(variable_Dim_2,len(x)),0)
+        if variable_Dim_1==variable_Dim_2:
+            try:
+                xhplus=x.copy()
+                xhplus[variable_Dim_1]+=h
+                fxhplus=f(xhplus,*args,**kwargs)
+                try:
+                    xhminus=x.copy()
+                    xhminus[variable_Dim_1]-=h
+                    fxhminus=f(xhminus,*args,**kwargs)
+                    return (fxhplus-2*fx+fxhminus)/(h**2)
+                except Exception:
+                    try:
+                        x2hplus=x.copy()
+                        x2hplus[variable_Dim_1]+=2*h
+                        fx2hplus=f(x2hplus,*args,**kwargs)
+                        try:
+                            x3hplus=x.copy()
+                            x3hplus[variable_Dim_1]+=3*h
+                            fx3hplus=f(x3hplus,*args,**kwargs)
+                            return (2*fx-5*fxhplus+4*fx2hplus-fx3hplus)/(h**2)
+                        except Exception:
+                            return (fx-2*fxhplus+fx2hplus)/(h**2)
+                    except Exception:
+                        print("Error: unable to find second derivative")
+                        return None
+            except Exception:
+                try:
+                    xhminus=x.copy()
+                    xhminus[variable_Dim_1]-=h
+                    fxhminus=f(xhminus,*args,**kwargs)
+                    x2hminus=x.copy()
+                    x2hminus[variable_Dim_1]-=2*h
+                    fx2hminus=f(x2hminus,*args,**kwargs)
+                    try:
+                        x3hminus=x.copy()
+                        x3hminus[variable_Dim_1]+=3*h
+                        fx3hminus=f(x3hminus,*args,**kwargs)
+                        return (2*fx-5*fxhminus+4*fx2hminus-fx3hminus)/(h**2)
+                    except Exception:
+                        return (fx-2*fxhminus+fx2hminus)/(h**2)
+                except Exception:
+                    print("Error: unable to find second derivative")
+                    return None
+        else:
+            xhplusplus=x.copy()
+            xhplusplus[variable_Dim_1]+=h
+            xhplusplus[variable_Dim_2]+=h
+            fxhplusplus=f(xhplusplus,*args,**kwargs)
+            xhplusminus=x.copy()
+            xhplusminus[variable_Dim_1]+=h
+            xhplusminus[variable_Dim_2]-=h
+            fxhplusminus=f(xhplusminus,*args,**kwargs)
+            xhminusplus=x.copy()
+            xhminusplus[variable_Dim_1]-=h
+            xhminusplus[variable_Dim_2]+=h
+            fxhminusplus=f(xhminusplus,*args,**kwargs)
+            xhminusminus=x.copy()
+            xhminusminus[variable_Dim_1]-=h
+            xhminusminus[variable_Dim_2]-=h
+            fxhminusminus=f(xhminusminus,*args,**kwargs)
+            return (fxhplusplus-fxhplusminus-fxhminusplus+fxhminusminus)/(4*h**2)
+    else:
+        print("Error: point x is of an incompatible type %s"%type(x).__name__)
+        return None
 
 def integrate(f,start,stop,args=[],kwargs={},mode="gauss",maxlevel=5,errtol=1e-3,adapt=True):
     #This method approximates the integral of a function f:R->R between the lower bound
@@ -476,7 +654,10 @@ def FFT(sol,inverse=False,min_factor=32):
                 return sol
     
     def D(N,N1,N2,i,j):
-        return np.exp(-2j*math.pi*j*(N2*i+np.arange(N2))/N)
+        if inverse:
+            return np.exp(2j*math.pi*j*(N2*i+np.arange(N2))/N)
+        else:
+            return np.exp(-2j*math.pi*j*(N2*i+np.arange(N2))/N)
     
     def B(sol,N,N1,N2):
         #This code is usually faster for smaller radices, but usually
