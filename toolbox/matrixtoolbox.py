@@ -3,10 +3,10 @@ import numpy as np
 import numpy.linalg as npla
 import scipy.sparse as scarse
 import matplotlib.pyplot as plt
+from toolbox.generaltoolbox import differentiate
+from toolbox.generaltoolbox import double_differentiate
 
 def plotMatrix(M,tol=1e-6,plotaxis=None,colormap=None,color="black",alpha=1.0):
-    #This method plots a matrix, leaving the zero entries blank.
-    #Non-zero elements are represented by either a flat color, or can be colored through a color-mapping based on element "strength". 
     graphsize=9
     font = {"family": "serif",
         "color": "black",
@@ -65,29 +65,10 @@ def plotMatrix(M,tol=1e-6,plotaxis=None,colormap=None,color="black",alpha=1.0):
             plotaxis.scatter(mX,mY,color=color,alpha=alpha,s=150/math.sqrt(len(mX)))
     plt.show()    
 
-def grad(f,vect,h=1e-6,args=[],kwargs={}):
-    from toolbox.generaltoolbox import differentiate
-    if not isinstance(vect,np.ndarray):
-        vect=np.array(vect)
-    if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
-        dim=1
-    elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
-        dim=len(vect)
-    else:
-        print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
-        return []
-    res=f(vect,*args,**kwargs)
-    if ("int" in type(res).__name__) or ("float" in type(res).__name__):
-        return np.array([differentiate(f,vect,variableDim=i) for i in range(dim)])
-    else:
-        print("Error: Function output is of incompatible type %s"%type(res).__name__)
-        return []
-    
 def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
     #This method approximates the Jacobian of a multidimensional function f with
     #multidimensional input vector vect. Variable h is the step size used to
     #approximate the derivative.
-    from toolbox.generaltoolbox import differentiate
     if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
         dim=1
     elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
@@ -96,17 +77,61 @@ def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
         print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
         return [[]]
     
-    if not isinstance(vect,np.ndarray):
-        vect=np.array(vect)
+    vect=np.asarray(vect,dtype=np.float)
     
     res=f(vect,*args,**kwargs)
     if ("int" in type(res).__name__) or ("float" in type(res).__name__):
-        return np.array([[differentiate(f,vect,variableDim=i) for i in range(dim)]])
+        return np.array([[differentiate(f,vect,h=h,variable_Dim=i) for i in range(dim)]])
     elif ("list" in type(res).__name__) or ("tuple" in type(res).__name__) or ("ndarray" in type(res).__name__):
-        return np.array([[differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variableDim=j) for j in range(dim)] for i in range(len(res))])
+        return np.array([[differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variable_Dim=j) for j in range(dim)] for i in range(len(res))])
     else:
         print("Error: Function output is of incompatible type %s"%type(res).__name__)
         return [[]]
+
+def hessian(f,vect,h=1e-3,args=[],kwargs={}):
+    #This method approximates the Hessian of a function f with
+    #multidimensional input vector vect. Variable h is the step size used to
+    #approximate the derivative.
+    if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
+        dim=1
+    elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
+        dim=len(vect)
+    else:
+        print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
+        return [[]]
+    
+    vect=np.asarray(vect,dtype=np.float)
+    
+    res=f(vect,*args,**kwargs)
+    if ("int" in type(res).__name__) or ("float" in type(res).__name__):
+        #H=np.zeros((dim,dim))
+        #for i in range(dim):
+        #    H[i,i]=double_differentiate(f,vect,h=h,variable_Dim_1=i,variable_Dim_2=i)
+        #    for j in range(i+1,dim):
+        #        dd=double_differentiate(f,vect,h=h,variable_Dim_1=i,variable_Dim_2=j)
+        #        H[i,j]=dd
+        #        H[j,i]=dd
+        #return H
+        return np.array([[double_differentiate(f,vect,h=h,variable_Dim_1=i,variable_Dim_2=j) for j in range(dim)] for i in range(dim)])
+    else:
+        print("Error: Function output is of incompatible type %s"%type(res).__name__)
+        return [[]]
+
+def grad(f,vect,h=1e-6,args=[],kwargs={}):
+    vect=np.asarray(vect,dtype=np.float)
+    if ("int" in type(vect).__name__) or ("float" in type(vect).__name__):
+        dim=1
+    elif ("list" in type(vect).__name__) or ("tuple" in type(vect).__name__) or ("ndarray" in type(vect).__name__):
+        dim=len(vect)
+    else:
+        print("Error: Inputted vector is of incompatible type %s"%type(vect).__name__)
+        return []
+    res=f(vect,*args,**kwargs)
+    if ("int" in type(res).__name__) or ("float" in type(res).__name__):
+        return np.array([differentiate(f,vect,h=h,variable_Dim=i) for i in range(dim)])
+    else:
+        print("Error: Function output is of incompatible type %s"%type(res).__name__)
+        return []
     
 def grammSchmidt(vectors,tol=1e-6,normalize=True,clean=True):
     #This method performs Gramm Schmidt orthogonalization on a set of vectors.
@@ -290,11 +315,11 @@ def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
             print("Error: %.6f" % npla.norm(np.dot(A, x) - b))
         return x
 
-def lu(A,b,tol=1e-6,symbol=False,inform=False):
+def lu2(A,b,tol=1e-6,symbol=False,inform=False):
     #This method implements the general LU Decomposition matrix solver.
     #It attempts to solve the equation Ax=b. The variable tol controls the 
     #tolerance of what is to be considered zero or not. Variable symbol allows 
-    #for the solving of matrix-vector equations involving symbols. Variable 
+    #for the solving of matrix-vector equations involving symbols.Variable 
     #inform allows the user to receive information about the process 
     #(for verification purposes).
     if not isinstance(A,np.ndarray):
@@ -475,3 +500,154 @@ def lu(A,b,tol=1e-6,symbol=False,inform=False):
         if inform:
             print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
         return []
+    
+def nullspace2(A,tol=1e-6,symbol=False,inform=False):
+    #TO BE FIXED
+    if not isinstance(A,np.ndarray):
+        A=np.array(A)
+    if len(A.shape)==2:
+        Acopy=A[0:min(A.shape[0],A.shape[1])].copy()
+        n,m=Acopy.shape
+        pivots=[]
+        Perm=np.identity(n)
+        for k in range(n):
+            pivot=-1
+            for i in range(k,m):
+                if abs(Acopy[k,i])>tol:
+                    pivot=i
+                    break
+                else:
+                    if Acopy[k,i]!=0.0:
+                        Acopy[k,i]=0.0
+                    switchedbool=False
+                    for j in range(k+1,n):
+                        if abs(Acopy[j,i])>tol:
+                            temp=Acopy[k].copy()
+                            Acopy[k]=Acopy[j]
+                            Acopy[j]=temp
+                            temp=Perm[k].copy()
+                            Perm[k]=Perm[j]
+                            Perm[j]=temp
+                            pivot=i
+                            switchedbool=True
+                            break
+                        else:
+                            Acopy[j,i]=0.0
+                    if switchedbool:
+                        break
+            if pivot!=-1:
+                pivots.append([k,pivot])
+                for i in range(k+1,n):
+                    if abs(Acopy[i,pivot])>tol:
+                        res=Acopy[i,pivot]/Acopy[k,pivot]
+                        Acopy[i,pivot]=0.0
+                        for j in range(pivot+1,m):
+                            if abs(Acopy[k,j])>tol:
+                                Acopy[i,j]=Acopy[i,j]-res*Acopy[k,j]
+                            else:
+                                Acopy[k,j]=0.0
+                    else:
+                        Acopy[i,pivot]=0.0
+                for i in range(pivot+1,m):
+                    if abs(Acopy[k,i])>tol:
+                        Acopy[k,i]=Acopy[k,i]/Acopy[k,pivot]
+                Acopy[k,pivot]=1.0
+        for p in pivots[::-1]:
+            for i in range(p[0]):
+                if abs(Acopy[i,p[1]])>tol:
+                    res=Acopy[i,p[1]]
+                    Acopy[i,p[1]]=0.0
+                    for j in range(p[1]+1,m):
+                        if abs(Acopy[p[0],j])>tol:
+                            Acopy[i,j]=Acopy[i,j]-res*Acopy[p[0],j]
+                        else:
+                            Acopy[p[0],j]=0.0
+                else:
+                    Acopy[i,p[1]]=0.0
+                    
+        freeVar=[i for i in range(m) if i not in [p[1] for p in pivots]]
+        sol=[np.zeros(m) for var in freeVar]        
+        for i in range(len(freeVar)):
+            for j in range(freeVar[i]):
+                if abs(Acopy[j,freeVar[i]])>tol:
+                    sol[i][j]=-Acopy[j,freeVar[i]]
+            sol[i][freeVar[i]]=1.0
+        return sol
+    else:
+        print("A is not a matrix; cannot find nullspace")
+        return [[]]
+
+def lu(A,b,symbol=False,sparse=False):
+    if symbol:
+        if sparse:
+            from sympy.matrices import SparseMatrix
+            if not "SparseMatrix" in type(A).__name__:
+                A=SparseMatrix(A)
+            if not "SparseMatrix" in type(b).__name__:
+                b=SparseMatrix(b)
+            return A.solve(b)
+        else:
+            from sympy import Matrix
+            if not "DenseMatrix" in type(A).__name__:
+                A=Matrix(A)
+            if not "DenseMatrix" in type(b).__name__:
+                b=Matrix(b)
+            return A.LUsolve(b)
+    else:
+        if sparse:
+            from scarse.linalg import spsolve
+            if not "csc_matrix" in type(A).__name__:
+                A=scarse.csc_matrix(A)
+            if not "csc_matrix" in type(b).__name__:
+                b=scarse.csc_matrix(b)
+            return spsolve(A,b)
+        else:
+            from scipy.linalg import lu_factor, lu_solve
+            lu,piv=lu_factor(A)
+            return lu_solve((lu,piv),b,check_finite=True)
+        
+def nullspace(A,symbol=False,sparse=False):
+    if symbol:
+        if sparse:
+            from sympy.matrices import SparseMatrix
+            if not "SparseMatrix" in type(A).__name__:
+                A=SparseMatrix(A)
+            return A.solve(SparseMatrix([0 for row in A.rows]))
+        else:
+            from sympy import Matrix
+            if not "DenseMatrix" in type(A).__name__:
+                A=Matrix(A)
+            return A.nullspace()
+    else:
+        if sparse:
+            from scarse.linalg import spsolve
+            if not "csc_matrix" in type(A).__name__:
+                A=scarse.csc_matrix(A)
+            return spsolve(A,scarse.csc_matrix([0 for row in A.shape[0]]))
+        else:
+            from scipy.linalg import null_space
+            return null_space(A)
+        
+def powerMethod(A,tol=1e-6,max_iter=100,x0=None,report=False):
+    n=A.shape[0]
+    if x0!=None:
+        x=x0.copy()
+    else:
+        x=np.random.rand(A.shape[0])
+    lmbda=0
+    r=2*tol
+    k=0
+    while r>tol and k<max_iter:
+        y=A.dot(x)
+        x=y/npla.norm(y)
+        lmbda=np.inner(np.conjugate(x),y)
+        r=npla.norm((A-lmbda*np.identity(n)).dot(x))
+        k+=1
+    if report:
+        print("Power Method Performance Data:")
+        if k >= max_iter:
+            print("Number of iterations (Max Number of Iterations Reached): %i" % k)
+        else:
+            print("Number of iterations: %i" % k)
+        print("Error: %.6f" % r)
+    return lmbda,x
