@@ -279,23 +279,191 @@ def double_differentiate(f,x,args=[],kwargs={},h=1e-3,variable_Dim_1=0,variable_
                     print("Error: unable to find second derivative")
                     return None
         else:
-            xhplusplus=x.copy()
-            xhplusplus[variable_Dim_1]+=h
-            xhplusplus[variable_Dim_2]+=h
-            fxhplusplus=f(xhplusplus,*args,**kwargs)
-            xhplusminus=x.copy()
-            xhplusminus[variable_Dim_1]+=h
-            xhplusminus[variable_Dim_2]-=h
-            fxhplusminus=f(xhplusminus,*args,**kwargs)
-            xhminusplus=x.copy()
-            xhminusplus[variable_Dim_1]-=h
-            xhminusplus[variable_Dim_2]+=h
-            fxhminusplus=f(xhminusplus,*args,**kwargs)
-            xhminusminus=x.copy()
-            xhminusminus[variable_Dim_1]-=h
-            xhminusminus[variable_Dim_2]-=h
-            fxhminusminus=f(xhminusminus,*args,**kwargs)
-            return (fxhplusplus-fxhplusminus-fxhminusplus+fxhminusminus)/(4*h**2)
+            try:
+                xhplusplus=x.copy()
+                xhplusplus[variable_Dim_1]+=h
+                xhplusplus[variable_Dim_2]+=h
+                fxhplusplus=np.asarray(f(xhplusplus,*args,**kwargs))
+                xhplusminus=x.copy()
+                xhplusminus[variable_Dim_1]+=h
+                xhplusminus[variable_Dim_2]-=h
+                fxhplusminus=np.asarray(f(xhplusminus,*args,**kwargs))
+                xhminusplus=x.copy()
+                xhminusplus[variable_Dim_1]-=h
+                xhminusplus[variable_Dim_2]+=h
+                fxhminusplus=np.asarray(f(xhminusplus,*args,**kwargs))
+                xhminusminus=x.copy()
+                xhminusminus[variable_Dim_1]-=h
+                xhminusminus[variable_Dim_2]-=h
+                fxhminusminus=np.asarray(f(xhminusminus,*args,**kwargs))
+                res=(fxhplusplus-fxhplusminus-fxhminusplus+fxhminusminus)/(4*h**2)
+                try:
+                    return res.item()
+                except Exception:
+                    return res
+            except Exception:
+                try:
+                    xhplusminus=x.copy()
+                    xhplusminus[variable_Dim_1]+=h
+                    xhplusminus[variable_Dim_2]-=h
+                    fxhplusminus=np.asarray(f(xhplusminus,*args,**kwargs))
+                    xhminusplus=x.copy()
+                    xhminusplus[variable_Dim_1]-=h
+                    xhminusplus[variable_Dim_2]+=h
+                    fxhminusplus=np.asarray(f(xhminusplus,*args,**kwargs))
+                    xhminusminus=x.copy()
+                    xhminusminus[variable_Dim_1]-=h
+                    xhminusminus[variable_Dim_2]-=h
+                    fxhminusminus=np.asarray(f(xhminusminus,*args,**kwargs))
+                    xhminusminus2=x.copy()
+                    xhminusminus2[variable_Dim_1]-=2*h
+                    xhminusminus2[variable_Dim_2]-=2*h
+                    fxhminusminus2=np.asarray(f(xhminusminus2,*args,**kwargs))
+                    res=(3*fx-fxhplusminus-fxhminusplus-2*fxhminusminus+fxhminusminus2)/(4*h**2)
+                    try:
+                        return res.item()
+                    except Exception:
+                        return res
+                except Exception:
+                    try:
+                        xhplusplus=x.copy()
+                        xhplusplus[variable_Dim_1]+=h
+                        xhplusplus[variable_Dim_2]+=h
+                        fxhplusplus=np.asarray(f(xhplusplus,*args,**kwargs))
+                        xhplusplus2=x.copy()
+                        xhplusplus2[variable_Dim_1]+=2*h
+                        xhplusplus2[variable_Dim_2]+=2*h
+                        fxhplusplus2=np.asarray(f(xhplusplus2,*args,**kwargs))
+                        xhplusminus=x.copy()
+                        xhplusminus[variable_Dim_1]+=h
+                        xhplusminus[variable_Dim_2]-=h
+                        fxhplusminus=np.asarray(f(xhplusminus,*args,**kwargs))
+                        xhminusplus=x.copy()
+                        xhminusplus[variable_Dim_1]-=h
+                        xhminusplus[variable_Dim_2]+=h
+                        fxhminusplus=np.asarray(f(xhminusplus,*args,**kwargs))
+                        res=(3*fx-fxhplusminus-fxhminusplus-2*fxhplusplus+fxhplusplus2)/(4*h**2)
+                        try:
+                            return res.item()
+                        except Exception:
+                            return res
+                    except Exception:
+                        try:
+                            xhplusplus=x.copy()
+                            xhplusplus[variable_Dim_1]+=h
+                            xhplusplus[variable_Dim_2]+=h
+                            fxhplusplus=np.asarray(f(xhplusplus,*args,**kwargs))
+                            xhplusminus=x.copy()
+                            xhplusminus[variable_Dim_1]+=h
+                            xhplusminus[variable_Dim_2]-=h
+                            fxhplusminus=np.asarray(f(xhplusminus,*args,**kwargs))
+                            xhplusminus2=x.copy()
+                            xhplusminus2[variable_Dim_1]+=2*h
+                            xhplusminus2[variable_Dim_2]-=2*h
+                            fxhplusminus2=np.asarray(f(xhplusminus2,*args,**kwargs))
+                            xhminusminus=x.copy()
+                            xhminusminus[variable_Dim_1]-=h
+                            xhminusminus[variable_Dim_2]-=h
+                            fxhminusminus=np.asarray(f(xhminusminus,*args,**kwargs))
+                            res=(3*fx-fxhplusplus-fxhminusminus-2*fxhplusminus+fxhplusminus2)/(4*h**2)
+                            try:
+                                return res.item()
+                            except Exception:
+                                return res
+                        except Exception:
+                            try:
+                                xhplusplus=x.copy()
+                                xhplusplus[variable_Dim_1]+=h
+                                xhplusplus[variable_Dim_2]+=h
+                                fxhplusplus=np.asarray(f(xhplusplus,*args,**kwargs))
+                                xhminusplus=x.copy()
+                                xhminusplus[variable_Dim_1]-=h
+                                xhminusplus[variable_Dim_2]+=h
+                                fxhminusplus=np.asarray(f(xhminusplus,*args,**kwargs))
+                                xhminusplus2=x.copy()
+                                xhminusplus2[variable_Dim_1]-=2*h
+                                xhminusplus2[variable_Dim_2]+=2*h
+                                fxhminusplus2=np.asarray(f(xhminusplus2,*args,**kwargs))
+                                xhminusminus=x.copy()
+                                xhminusminus[variable_Dim_1]-=h
+                                xhminusminus[variable_Dim_2]-=h
+                                fxhminusminus=np.asarray(f(xhminusminus,*args,**kwargs))
+                                res=(3*fx-fxhplusplus-fxhminusminus-2*fxhminusplus+fxhminusplus2)/(4*h**2)
+                                try:
+                                    return res.item()
+                                except Exception:
+                                    return res
+                            except Exception:
+                                try:
+                                    xhplusplus=x.copy()
+                                    xhplusplus[variable_Dim_1]+=h
+                                    xhplusplus[variable_Dim_2]+=h
+                                    fxhplusplus=np.asarray(f(xhplusplus,*args,**kwargs))
+                                    xhplus0=x.copy()
+                                    xhplus0[variable_Dim_1]+=h
+                                    fxhplus0=np.asarray(f(xhplus0,*args,**kwargs))
+                                    xh0plus=x.copy()
+                                    xh0plus[variable_Dim_2]+=h
+                                    fxh0plus=np.asarray(f(xh0plus,*args,**kwargs))
+                                    res=(fx-fxh0plus-fxhplus0+fxhplusplus)/(h**2)
+                                    try:
+                                        return res.item()
+                                    except Exception:
+                                        return res
+                                except Exception:
+                                    try:
+                                        xhplusminus=x.copy()
+                                        xhplusminus[variable_Dim_1]+=h
+                                        xhplusminus[variable_Dim_2]-=h
+                                        fxhplusminus=np.asarray(f(xhplusminus,*args,**kwargs))
+                                        xhplus0=x.copy()
+                                        xhplus0[variable_Dim_1]+=h
+                                        fxhplus0=np.asarray(f(xhplus0,*args,**kwargs))
+                                        xh0minus=x.copy()
+                                        xh0minus[variable_Dim_2]-=h
+                                        fxh0minus=np.asarray(f(xh0minus,*args,**kwargs))
+                                        res=(fx-fxh0minus-fxhplus0+fxhplusminus)/(h**2)
+                                        try:
+                                            return res.item()
+                                        except Exception:
+                                            return res
+                                    except Exception:
+                                        try:
+                                            xhminusplus=x.copy()
+                                            xhminusplus[variable_Dim_1]-=h
+                                            xhminusplus[variable_Dim_2]+=h
+                                            fxhminusplus=np.asarray(f(xhplusminus,*args,**kwargs))
+                                            xhminus0=x.copy()
+                                            xhminus0[variable_Dim_1]-=h
+                                            fxhminus0=np.asarray(f(xhminus0,*args,**kwargs))
+                                            xh0plus=x.copy()
+                                            xh0plus[variable_Dim_2]+=h
+                                            fxh0plus=np.asarray(f(xh0plus,*args,**kwargs))
+                                            res=(fx-fxh0plus-fxhminus0+fxhminusplus)/(h**2)
+                                            try:
+                                                return res.item()
+                                            except Exception:
+                                                return res
+                                        except Exception:
+                                            try:
+                                                xhminusminus=x.copy()
+                                                xhminusminus[variable_Dim_1]-=h
+                                                xhminusminus[variable_Dim_2]-=h
+                                                fxhminusminus=np.asarray(f(xhminusminus,*args,**kwargs))
+                                                xhminus0=x.copy()
+                                                xhminus0[variable_Dim_1]-=h
+                                                fxhminus0=np.asarray(f(xhminus0,*args,**kwargs))
+                                                xh0minus=x.copy()
+                                                xh0minus[variable_Dim_2]-=h
+                                                fxh0minus=np.asarray(f(xh0minus,*args,**kwargs))
+                                                res=(fx-fxh0minus-fxhminus0+fxhminusminus)/(h**2)
+                                                try:
+                                                    return res.item()
+                                                except Exception:
+                                                    return res
+                                            except Exception:
+                                                print("Error: unable to find second derivative")
+                                                return None
     else:
         print("Error: point x is of an incompatible type %s"%type(x).__name__)
         return None
