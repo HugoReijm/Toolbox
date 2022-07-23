@@ -81,9 +81,9 @@ def jacobian(f,vect,h=1e-6,args=[],kwargs={}):
     
     res=f(vect,*args,**kwargs)
     if ("int" in type(res).__name__) or ("float" in type(res).__name__):
-        return np.array([[differentiate(f,vect,h=h,variable_Dim=i) for i in range(dim)]])
+        return np.array([[differentiate(f,vect,h=h,variable_Dim=i,args=args,kwargs=kwargs) for i in range(dim)]])
     elif ("list" in type(res).__name__) or ("tuple" in type(res).__name__) or ("ndarray" in type(res).__name__):
-        return np.array([[differentiate(lambda x:f(x,*args,**kwargs)[i],vect,h=h,variable_Dim=j) for j in range(dim)] for i in range(len(res))])
+        return np.array([differentiate(f,vect,h=h,variable_Dim=i,args=args,kwargs=kwargs) for i in range(dim)]).T
     else:
         print("Error: Function output is of incompatible type %s"%type(res).__name__)
         return [[]]
@@ -315,111 +315,200 @@ def cg(A,b,errtol=1e-6,maxlevel=1000,x0=None,inform=False):
             print("Error: %.6f" % npla.norm(np.dot(A, x) - b))
         return x
 
-def lu2(A,b,tol=1e-6,symbol=False,inform=False):
-    #This method implements the general LU Decomposition matrix solver.
-    #It attempts to solve the equation Ax=b. The variable tol controls the 
-    #tolerance of what is to be considered zero or not. Variable symbol allows 
-    #for the solving of matrix-vector equations involving symbols.Variable 
+def linear_system_solve(A,b,zerotol=1e-6,inform=False):
+    #This method implements the general Gaussain Elimination solver.
+    #It attempts to solve the equation Ax=b. The variable zerotol controls the 
+    #tolerance of what is to be considered zero or not. Variable 
     #inform allows the user to receive information about the process 
-    #(for verification purposes).
-    if not isinstance(A,np.ndarray):
-        A=np.array(A)
-    if not isinstance(b,np.ndarray):
-        b=np.array(b)
+    #(for verification purposes). Output is given as <(C,(S1,S2,...Sn))>, where
+    #the solution for Ax=b can be summed as S1*x1+S2*x2+...Sn*xn+C, where
+    #x1,x2,...xn are real numbers.
+    A=np.asarray(A,dtype=np.float)
+    b=np.asarray(b,dtype=np.float)
     if len(A.shape)==2 and len(b.shape)==1 and A.shape[0]==b.shape[0]:
-        if A.shape[0]>A.shape[1] and inform:
-            print("More equations than variables; reducing number of equations")
-        Acopy=A[0:min(A.shape[0],A.shape[1])].copy()
-        bcopy=b[0:min(A.shape[0],A.shape[1])].copy()
+        Acopy=A.copy()
+        bcopy=b.copy()
         n,m=Acopy.shape
-        if tol<0:
-            tol=abs(tol)
+        zerotol=abs(zerotol)
         pivots=[]
-        if symbol:
-            from sympy import eye
-            from sympy import zeros
-            from sympy import simplify
-            from sympy import Matrix
-            L=eye(n)
-        else:
-            L=np.identity(n)
-        for k in range(n-1):
-            pivot=-1
+        for k in range(n):
+            pivot=(-1,-1)
             for i in range(k,m):
-                if (not symbol and abs(Acopy[k][i])>tol) or (symbol and Acopy[k][i]!=0):
-                    pivot=i
+                if abs(Acopy[k][i])>zerotol:
+                    pivot=(k,i)
+                    pivots.append(pivot)
                     break
                 else:
                     if Acopy[k][i]!=0:
                         Acopy[k][i]=0.0
                     switchedbool=False
                     for j in range(k+1,n):
-                        if (not symbol and abs(Acopy[j][i])>tol) or (symbol and Acopy[j][i]!=0):
+                        if abs(Acopy[j][i])>zerotol:
                             temp=Acopy[k].copy()
                             Acopy[k]=Acopy[j]
                             Acopy[j]=temp
                             temp=bcopy[k]
                             bcopy[k]=bcopy[j]
                             bcopy[j]=temp
-                            if symbol:
-                                temp=L[k,:]
-                                L[k,:]=L[j,:]
-                                L[j,:]=temp
-                                temp=L[:,k]
-                                L[:,k]=L[:,j]
-                                L[:,j]=temp
-                            else:
-                                temp=L[k].copy()
-                                L[k]=L[j]
-                                L[j]=temp
-                                temp=L[:,k].copy()
-                                L[:,k]=L[:,j]
-                                L[:,j]=temp
-                            pivot=i
+                            pivot=(j,i)
+                            pivots.append(pivot)
                             switchedbool=True
                             break
                         elif Acopy[j][i]!=0:
                             Acopy[j][i]=0.0
                     if switchedbool:
                         break
+            if pivot[1]!=-1:
+                for i in range(k+1,n):
+                    if abs(Acopy[i][pivot[1]])>zerotol:
+                        res=Acopy[i][pivot[1]]/Acopy[k][pivot[1]]
+                        Acopy[i][pivot[1]]=0.0
+                        for j in range(pivot[1]+1,m):
+                            if abs(Acopy[k][j])>zerotol:
+                                Acopy[i][j]=Acopy[i][j]-res*Acopy[k][j]
+                                if abs(Acopy[i][j])<=zerotol:
+                                    Acopy[i][j]=0.0
+                            elif Acopy[k][j]!=0:
+                                Acopy[k][j]=0.0
+                        bcopy[i]=bcopy[i]-res*bcopy[k]
+                        if abs(bcopy[k])<=zerotol:
+                            bcopy[k]=0.0
+                    elif Acopy[i][pivot[1]]!=0:
+                        Acopy[i][pivot[1]]=0.0
+
+        for k in range(pivots[-1][0]+1,n):
+            empty=True
+            for j in range(k,m):
+                if abs(Acopy[k][j])>zerotol:
+                    empty=False
+                    break
+                elif Acopy[k][j]!=0.0:
+                    Acopy[k][j]=0.0
+            if empty:
+                if abs(bcopy[k])>zerotol:
+                    if inform:
+                        print("Matrix equation does not have a solution")
+                    return []
+        
+        for pivot in pivots[-1::-1]:
+            for j in range(pivot[1]+1,m):
+                Acopy[pivot[0]][j]=Acopy[pivot[0]][j]/Acopy[pivot[0]][pivot[1]]
+                if abs(Acopy[pivot[0]][j])<=zerotol:
+                    Acopy[pivot[0]][j]=0.0
+            bcopy[pivot[0]]=bcopy[pivot[0]]/Acopy[pivot[0]][pivot[1]]
+            if abs(bcopy[pivot[0]])<=zerotol:
+                bcopy[pivot[0]]=0.0
+            Acopy[pivot[0]][pivot[1]]=1.0
+            for i in range(pivot[0]):
+                res=Acopy[i][pivot[1]]
+                for j in range(pivot[1],m):
+                    Acopy[i][j]=Acopy[i][j]-res*Acopy[pivot[0]][j]
+                    if abs(Acopy[i][j])<=zerotol:
+                        Acopy[i][j]=0.0
+                bcopy[i]=bcopy[i]-res*bcopy[pivot[0]]
+                if abs(bcopy[i])<=zerotol:
+                    bcopy[i]=0.0
+            
+        if inform:
+            print("Matrix Reduced Echelon Form:")
+            print(Acopy)
+            print()
+            print("Vector Reduced Echelon Form:")
+            print(bcopy)
+            print()
+        
+        c_vector=np.zeros(m,dtype=np.float)
+        for pivot in pivots:
+            c_vector[pivot[1]]=bcopy[pivot[0]]
+        free_vectors=[]
+        for p in range(len(pivots)-1):
+            for i in range(pivots[p][1]+1,pivots[p+1][1]):
+                res=np.zeros(m,dtype=np.float)
+                for pivot in pivots:
+                    res[pivot[1]]=-Acopy[pivot[0]][i]
+                res[i]=1.0
+                free_vectors.append(res)
+        for i in range(pivots[-1][1]+1,min(n,m)):
+            res=np.zeros(m,dtype=np.float)
+            for pivot in pivots:
+                res[pivot[1]]=-Acopy[pivot[0]][i]
+            res[i]=1.0
+            free_vectors.append(res)
+        return (c_vector,tuple(free_vectors))
+    else:
+        if inform:
+            print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
+        return None
+    
+def lu_symbolic(A,b,inform=False):
+    #This method implements the symbolic LU Decomposition matrix solver.
+    #It attempts to solve the equation Ax=b. Variable inform allows the
+    #user to receive information about the process (for verification purposes).
+    A=np.asarray(A,dtype=np.float)
+    b=np.asarray(b,dtype=np.float)
+    if len(A.shape)==2 and len(b.shape)==1 and A.shape[0]==b.shape[0]:
+        if A.shape[0]>A.shape[1] and inform:
+            print("More equations than variables; reducing number of equations")
+        Acopy=A[:min(A.shape[0],A.shape[1])].copy()
+        bcopy=b[:min(A.shape[0],A.shape[1])].copy()
+        n,m=Acopy.shape
+        pivots=[]
+        
+        from sympy import eye
+        from sympy import zeros
+        from sympy import simplify
+        #from sympy import Matrix
+        L=eye(n)
+        for k in range(n-1):
+            pivot=-1
+            for i in range(k,m):
+                if Acopy[k][i]!=0.0:
+                    pivot=i
+                    break
+                else:
+                    switchedbool=False
+                    for j in range(k+1,n):
+                        if Acopy[j][i]!=0.0:
+                            temp=Acopy[k].copy()
+                            Acopy[k]=Acopy[j]
+                            Acopy[j]=temp
+                            temp=bcopy[k]
+                            bcopy[k]=bcopy[j]
+                            bcopy[j]=temp
+                            temp=L[k,:]
+                            L[k,:]=L[j,:]
+                            L[j,:]=temp
+                            temp=L[:,k]
+                            L[:,k]=L[:,j]
+                            L[:,j]=temp
+                            pivot=i
+                            switchedbool=True
+                            break
+                    if switchedbool:
+                        break
             if pivot!=-1:
                 pivots.append(pivot)
                 for i in range(k+1,n):
-                    if (not symbol and abs(Acopy[i][pivot])>tol) or (symbol and Acopy[i][pivot]!=0):
-                        if symbol:
-                            L[i,pivot]=simplify(Acopy[i][pivot]/Acopy[k][pivot])
-                        else:
-                            L[i][pivot]=Acopy[i][pivot]/Acopy[k][pivot]
+                    if Acopy[i][pivot]!=0.0:
+                        L[i,pivot]=simplify(Acopy[i][pivot]/Acopy[k][pivot])
                         Acopy[i][pivot]=0.0
                         for j in range(pivot+1,m):
-                            if (not symbol and abs(Acopy[k][j])>tol) or (symbol and Acopy[k][j]!=0):
-                                if symbol:
-                                    Acopy[i][j]=simplify(Acopy[i][j]-L[i,k]*Acopy[k][j])
-                                else:
-                                    Acopy[i][j]=Acopy[i][j]-L[i][k]*Acopy[k][j]
-                            elif Acopy[k][j]!=0:
-                                Acopy[k][j]=0.0
-                    elif Acopy[i][pivot]!=0:
-                        Acopy[i][pivot]=0.0
+                            if Acopy[k][j]!=0.0:
+                                Acopy[i][j]=simplify(Acopy[i][j]-L[i,k]*Acopy[k][j])
         for i in range(n-1,m):
-            if (not symbol and abs(Acopy[n-1][i])>tol) or (symbol and Acopy[n-1][i]!=0):
+            if Acopy[n-1][i]!=0.0:
                 pivots.append(n-1)
                 break
-            elif Acopy[n-1][i]!=0:
-                Acopy[n-1][i]=0.0
         if inform:
             free=[i for i in range(m) if i not in pivots]
             print("Lower Triangular Matrix P*L:")
-            if symbol:
-                for i in range(n):
-                    if i==0:
-                        print("[["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
-                    elif i==n-1:
-                        print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]]")
-                    else:
-                        print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
-            else:
-                print(L)
+            for i in range(n):
+                if i==0:
+                    print("[["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
+                elif i==n-1:
+                    print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]]")
+                else:
+                    print(" ["+"  ".join([str(L[i,j]) for j in range(m)])+"]")
             print()
             print("Upper Triangular Matrix U:")
             print(Acopy)
@@ -430,153 +519,84 @@ def lu2(A,b,tol=1e-6,symbol=False,inform=False):
             if len(free)>0:
                 print("System has potentially infinite solutions; choosing one solution")
             
-        if symbol:
-            y=zeros(1,n)
-        else:
-            y=np.zeros(n)
+        y=zeros(1,n)
         for i in range(n):
-            if symbol:
-                y[i]=simplify((bcopy[i]-sum([L[i,j]*y[j] for j in range(i)]))/L[i,i])
-            else:
-                y[i]=(bcopy[i]-sum([L[i][j]*y[j] for j in range(i)]))/L[i][i]
-        
-        if symbol:
-            x=zeros(1,m)
+            y[i]=simplify((bcopy[i]-sum([L[i,j]*y[j] for j in range(i)]))/L[i,i])
+           
+        for k in range(n-1,-1,-1):
+            pivot=-1
+            empty=True
+            for j in range(k,m):
+                if Acopy[k][j]!=0.0:
+                    pivot=j
+                    empty=False
+                    break
+            if empty:
+                if y[i]!=0.0:
+                    if inform:
+                        print("Matrix equation does not have a solution")
+                    return []
+            if pivot!=-1:
+                for j in range(pivot+1,m):
+                    Acopy[k][j]=Acopy[k][j]/Acopy[k][pivot]
+                y[k]=y[k]/Acopy[k][pivot]
+                Acopy[k][pivot]=1.0
+                for i in range(k):
+                    temp=Acopy[i][pivot]
+                    for j in range(pivot,m):
+                        Acopy[i][j]=Acopy[i][j]-temp*Acopy[k][j]
+                    y[i]=y[i]-temp*y[k]
+        if len(pivots)<m:
+            for i in range(len(pivots),m):
+                Acopy[i][i]=-1.0
+            return (y,tuple([-Acopy[:,j] for j in range(len(pivots),m)]))
         else:
-            x=np.zeros(m)
+            return y
+        
+        """
+        x=zeros(1,m)
         for i in range(n,m):
-            x[i]=1
+            x[i]=1.0
         for i in range(n-1,-1,-1):
             pivot=-1
             empty=True
             for j in range(i,m):
-                if (not symbol and abs(Acopy[i][j])>tol) or (symbol and Acopy[i][j]!=0):
+                if Acopy[i][j]!=0.0:
                     if j!=i:
-                        x[i]=1
+                        x[i]=1.0
                     pivot=j
                     empty=False
                     break
-                elif Acopy[i][j]!=0:
+                elif Acopy[i][j]!=0.0:
                     Acopy[i][j]=0.0
             if empty:
-                if y[i]==0:
+                if y[i]==0.0:
                     continue
                 else:
                     if inform:
                         print("Matrix equation does not have a solution")
                     return []
             if pivot!=-1:
-                if symbol:
-                    x[pivot]=simplify((y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot])
-                else:
-                    x[pivot]=(y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot]
-            
-        if symbol:
-            error=simplify(Matrix([sum([A[i][j]*x[j] for j in range(len(A[i]))])-b[i] for i in range(len(A))]).norm())
-            if error!=0:
-                if inform:
-                    print("Matrix equation may not have a solution; please check yourself")
-                    print("L Error: %s" % simplify(Matrix([sum([L[i,j]*y[j] for j in range(L.shape[0])])-bcopy[i] for i in range(L.shape[1])]).norm()))
-                    print("U Error: %s" % simplify(Matrix([sum([Acopy[i,j]*x[j] for j in range(Acopy.shape[1])])-y[i] for i in range(Acopy.shape[0])]).norm()))
-                    print("Total Error: %s" % error)
-                return x
-        else:
-            error=npla.norm(np.dot(A,x)-b)
-            if error>1e-10:
-                if inform:
-                    print("Matrix equation does not have a solution")
-                return []
-        if inform:
-            if symbol:
+                x[pivot]=simplify((y[i]-sum([Acopy[i][j]*x[j] for j in range(pivot+1,m)]))/Acopy[i][pivot])
+        error=simplify(Matrix([sum([A[i][j]*x[j] for j in range(len(A[i]))])-b[i] for i in range(len(A))]).norm())
+        if error!=0.0:
+            if inform:
+                print("Matrix equation may not have a solution; please check yourself")
                 print("L Error: %s" % simplify(Matrix([sum([L[i,j]*y[j] for j in range(L.shape[0])])-bcopy[i] for i in range(L.shape[1])]).norm()))
                 print("U Error: %s" % simplify(Matrix([sum([Acopy[i,j]*x[j] for j in range(Acopy.shape[1])])-y[i] for i in range(Acopy.shape[0])]).norm()))
                 print("Total Error: %s" % error)
-            else:
-                print("L Error: %.6f" % npla.norm(np.dot(L,y)-bcopy))
-                print("U Error %.6f" % npla.norm(np.dot(Acopy,x)-y))
-                print("Total Error: %.6f" % error)
+            return x
+        if inform:
+            print("L Error: %s" % simplify(Matrix([sum([L[i,j]*y[j] for j in range(L.shape[0])])-bcopy[i] for i in range(L.shape[1])]).norm()))
+            print("U Error: %s" % simplify(Matrix([sum([Acopy[i,j]*x[j] for j in range(Acopy.shape[1])])-y[i] for i in range(Acopy.shape[0])]).norm()))
+            print("Total Error: %s" % error)
         return x
+        """
     else:
         if inform:
             print("Matrix A or vector b not of the right shape; can not perform LU decomposition")
         return []
     
-def nullspace2(A,tol=1e-6,symbol=False,inform=False):
-    #TO BE FIXED
-    if not isinstance(A,np.ndarray):
-        A=np.array(A)
-    if len(A.shape)==2:
-        Acopy=A[0:min(A.shape[0],A.shape[1])].copy()
-        n,m=Acopy.shape
-        pivots=[]
-        Perm=np.identity(n)
-        for k in range(n):
-            pivot=-1
-            for i in range(k,m):
-                if abs(Acopy[k,i])>tol:
-                    pivot=i
-                    break
-                else:
-                    if Acopy[k,i]!=0.0:
-                        Acopy[k,i]=0.0
-                    switchedbool=False
-                    for j in range(k+1,n):
-                        if abs(Acopy[j,i])>tol:
-                            temp=Acopy[k].copy()
-                            Acopy[k]=Acopy[j]
-                            Acopy[j]=temp
-                            temp=Perm[k].copy()
-                            Perm[k]=Perm[j]
-                            Perm[j]=temp
-                            pivot=i
-                            switchedbool=True
-                            break
-                        else:
-                            Acopy[j,i]=0.0
-                    if switchedbool:
-                        break
-            if pivot!=-1:
-                pivots.append([k,pivot])
-                for i in range(k+1,n):
-                    if abs(Acopy[i,pivot])>tol:
-                        res=Acopy[i,pivot]/Acopy[k,pivot]
-                        Acopy[i,pivot]=0.0
-                        for j in range(pivot+1,m):
-                            if abs(Acopy[k,j])>tol:
-                                Acopy[i,j]=Acopy[i,j]-res*Acopy[k,j]
-                            else:
-                                Acopy[k,j]=0.0
-                    else:
-                        Acopy[i,pivot]=0.0
-                for i in range(pivot+1,m):
-                    if abs(Acopy[k,i])>tol:
-                        Acopy[k,i]=Acopy[k,i]/Acopy[k,pivot]
-                Acopy[k,pivot]=1.0
-        for p in pivots[::-1]:
-            for i in range(p[0]):
-                if abs(Acopy[i,p[1]])>tol:
-                    res=Acopy[i,p[1]]
-                    Acopy[i,p[1]]=0.0
-                    for j in range(p[1]+1,m):
-                        if abs(Acopy[p[0],j])>tol:
-                            Acopy[i,j]=Acopy[i,j]-res*Acopy[p[0],j]
-                        else:
-                            Acopy[p[0],j]=0.0
-                else:
-                    Acopy[i,p[1]]=0.0
-                    
-        freeVar=[i for i in range(m) if i not in [p[1] for p in pivots]]
-        sol=[np.zeros(m) for var in freeVar]        
-        for i in range(len(freeVar)):
-            for j in range(freeVar[i]):
-                if abs(Acopy[j,freeVar[i]])>tol:
-                    sol[i][j]=-Acopy[j,freeVar[i]]
-            sol[i][freeVar[i]]=1.0
-        return sol
-    else:
-        print("A is not a matrix; cannot find nullspace")
-        return [[]]
-
 def lu(A,b,symbol=False,sparse=False):
     if symbol:
         if sparse:
@@ -627,7 +647,7 @@ def nullspace(A,symbol=False,sparse=False):
         else:
             from scipy.linalg import null_space
             return null_space(A)
-        
+
 def powerMethod(A,tol=1e-6,max_iter=100,x0=None,report=False):
     n=A.shape[0]
     if x0!=None:
