@@ -54,9 +54,9 @@ def hammersley(N,dim,points=True):
             bprime=bprime*b
         return phi
     if points:
-        return [np.array([n/N]+[Phi(n,B[i-1]) for i in range(1,dim)]) for n in range(N+1)]
+        return [np.array([n/(N-1)]+[Phi(n,B[i-1]) for i in range(1,dim)]) for n in range(N)]
     else:
-        return [np.array([n/N for n in range(N+1)])]+[np.array([Phi(n,B[i-1]) for n in range(N+1)]) for i in range(1,dim)]
+        return [np.array([n/(N-1) for n in range(N)])]+[np.array([Phi(n,B[i-1]) for n in range(N)]) for i in range(1,dim)]
 
 def differentiate(f,x,args=[],kwargs={},h=1e-6,variable_Dim=0):
     #This method approximates the (partial) derivative of function f:R^n->R
