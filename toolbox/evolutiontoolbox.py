@@ -2,12 +2,12 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import toolbox.generaltoolbox as gtb
-
+from toolbox.generaltoolbox import hammersley
+        
 #This file contains two classes: the population class and the evoalg class.
 #The population class contains all the information and methods for one iteration of the Evolutionary Algorithm.
 class population(object):
-    def __init__(self,size,size_of_gene,number_of_offspring,fitnessfunction,minInputs,maxInputs,integer_values_bool=False,pseudo_random_bool=False):
+    def __init__(self,size,size_of_gene,number_of_offspring,fitnessfunction,minInputs,maxInputs,integer_values_bool=False,pseudo_random_bool=True):
         #This initialization method allows the user to determine the following:
         #<size> determines how large the population is.
         #<size_of_gene> determines how long the genes of the population are.
@@ -23,11 +23,15 @@ class population(object):
         self.minInputs=minInputs.copy()
         self.intValBool=integer_values_bool
         if self.intValBool:
-            self.genes=[np.array([random.randint(int(round(minInputs[j])),int(round(maxInputs[j]))) for j in range(self.size_of_gene)]) for i in range(self.size)]
+            if pseudo_random_bool:
+                ham_points=np.array(hammersley(self.size,self.size_of_gene,points=True))
+                self.genes=[np.round(self.minInputs+ham_points[i]*(self.maxInputs-self.minInputs)).astype(int) for i in range(self.size)]
+            else:
+                self.genes=[np.array([random.randint(int(round(minInputs[j])),int(round(maxInputs[j]))) for j in range(self.size_of_gene)]) for i in range(self.size)]
         else:
             if pseudo_random_bool:
-                hammersley=np.array(gtb.hammersley(self.size,self.size_of_gene,points=True))
-                self.genes=[self.minInputs+hammersley[i]*(self.maxInputs-self.minInputs) for i in range(self.size)]
+                ham_points=np.array(hammersley(self.size,self.size_of_gene,points=True))
+                self.genes=[self.minInputs+ham_points[i]*(self.maxInputs-self.minInputs) for i in range(self.size)]
             else:
                 self.genes=[self.minInputs+np.random.random_sample((self.size_of_gene,))*(self.maxInputs-self.minInputs) for i in range(self.size)]
         self.fitnessfunction=fitnessfunction
@@ -43,16 +47,21 @@ class population(object):
     def computefitness(self):
         #This method computes the fitness of each gene in the population, then sorts the genes in ascending order based on fitness.
         self.fitness=np.array([self.fitnessfunction(self.genes[i]) for i in range(self.size)])
-        self.genes=[gene for _,gene in sorted(zip(self.fitness,self.genes),key=lambda pair:pair[0],reverse=True)]
+        pairs=sorted(zip(self.fitness,self.genes),key=lambda pair:pair[0],reverse=True)
+        self.genes=[gene for _,gene in pairs]
+        self.fitness=[fitness for fitness,_ in pairs]
+        #self.genes=[gene for _,gene in sorted(zip(self.fitness,self.genes),key=lambda pair:pair[0],reverse=True)]
     
     def tournament_selection(self):
         #This method selects a gene from the population by selected the most fit gene from a randomly selected subset of the population. 
         k=min(int(self.size/2),1)
-        indexArray=[random.randint(0,self.size-1) for i in range(k)]
-        gindex=indexArray[0]
+        random_index_Array=[random.randint(0,self.size-1) for i in range(k)]
+        gindex=random_index_Array[0]
         for i in range(1,k):
-            if self.fitnessfunction(self.genes[indexArray[i]])>self.fitnessfunction(self.genes[gindex]):
-                gindex=indexArray[i]
+            if self.fitness[random_index_Array[i]]>self.fitness[gindex]:
+                gindex=random_index_Array[i]
+            #if self.fitnessfunction(self.genes[indexArray[i]])>self.fitnessfunction(self.genes[gindex]):
+            #    gindex=indexArray[i]
         return gindex
     
     def crossover(self):
@@ -68,8 +77,8 @@ class population(object):
                 else:
                     g2index=self.tournament_selection()    
                     p=random.randint(1,self.size_of_gene-1)
-                    g1=np.hstack((self.genes[g1index][:p],self.genes[g2index][p:])).copy()
-                    g2=np.hstack((self.genes[g2index][:p],self.genes[g1index][p:])).copy()
+                    g1=np.hstack((self.genes[g1index][:p],self.genes[g2index][p:]))#.copy()
+                    g2=np.hstack((self.genes[g2index][:p],self.genes[g1index][p:]))#.copy()
                     new_genes.append(g1.copy())
                     new_genes.append(g2.copy())
                                  
@@ -90,7 +99,7 @@ class population(object):
             
 #The evoalg class contains the information and methods for executing consecutive iterations of the Evolutionary Algorithm.
 class evoAlg:
-    def __init__(self,function,populationSize,geneLength,offspringNumber,minInputs,maxInputs,integer_values_bool=False,pseudo_random_bool=False):
+    def __init__(self,function,populationSize,geneLength,offspringNumber,minInputs,maxInputs,integer_values_bool=False,pseudo_random_bool=True):
         #This initialization method initializes the population and allows the user to determine the following:
         #<function> determines the function that decides how fit a gene is.
         #<populationSize> determines how large the population is.
@@ -131,16 +140,16 @@ class evoAlg:
         #If <inform> is true, the algorithm interacts with the user to inform them of progress and results.
         self.gens=generations
         self.population.current_generation=0
-        self.fitness_per_generation=np.zeros(self.gens)
-        stop_bool=False
-        tracker_bool=False
-        tracker_gen=0
         alpha=0.1
         if adapt:
             mutation_chance_A=alpha/(1-np.exp(-1))
             mutation_chance_B=-mutation_chance_A*np.exp(-1)
-        while self.population.current_generation<self.gens and not stop_bool:
-            if inform and (self.population.current_generation+1)%10==0:
+        if inform:
+            percent_10=int(round(self.gens/10))
+            self.fitness_per_generation=np.zeros(self.gens)
+        stopbool=False
+        while self.population.current_generation<self.gens and not stopbool:
+            if inform and (self.population.current_generation+1)%percent_10==0:
                 tic=time.time()
             self.population.crossover()
             #If <adapt> is true, the mutation chance drops exponentially per generation, starting at <alpha=0.1> and ending at 0.
@@ -149,42 +158,22 @@ class evoAlg:
             else:
                 self.population.mutate(mutation_chance=alpha)
             self.population.computefitness()
-            if inform and (self.population.current_generation+1)%10==0 and (self.population.current_generation!=generations):
+            if inform and (self.population.current_generation+1)%percent_10==0 and (self.population.current_generation!=generations):
                 res_time=time.time()-tic
-                print("Algorithm %0.1f percent complete. Remaining time is approximately %0.1f minutes"%(100*(self.population.current_generation+1)/generations, res_time*(generations-self.population.current_generation-1)/60))
-            self.fitness_per_generation[self.population.current_generation]=np.mean(self.population.fitness)
-            if self.population.current_generation>0 and not tracker_bool and self.fitness_per_generation[self.population.current_generation]==self.fitness_per_generation[self.population.current_generation-1]:
-                tracker_bool=True
-                tracker_gen=self.population.current_generation
-            if tracker_bool and self.population.current_generation>=tracker_gen+10:
-                if self.fitness_per_generation[self.population.current_generation]==self.fitness_per_generation[tracker_gen]:
-                    stop_bool=True
-                    print("Algorithm has reached convergence after %i generations"%(self.population.current_generation+1))
-                else:
-                    tracker_bool=False
+                print("Algorithm %0.1f percent complete. Remaining time is approximately %0.2f minutes"%(100*(self.population.current_generation+1)/generations, res_time*(generations-self.population.current_generation-1)/60))
+                if np.std(self.population.fitness)<0.1:
+                    stopbool=True
+            if plot:
+                self.fitness_per_generation[self.population.current_generation]=np.mean(self.population.fitness)
             self.population.current_generation+=1
+        self.population.computefitness()
         print()    
-        print("Best individual after %i generations"%self.population.current_generation)
-        bstInd=0
-        for i in range(len(self.population.genes)):
-            if self.population.fitness[i]>self.population.fitness[bstInd]:
-                bstInd=i
-        print(self.population.genes[bstInd])
-        if not self.intValBool:
-            print("Average individual after %i generations"%self.population.current_generation)
-            avInd=np.zeros((self.population.size_of_gene,))
-            for gn in self.population.genes:
-                avInd+=gn
-            print(avInd/self.population.size)
-        print("Worst individual after %i generations"%self.population.current_generation)
-        wrstInd=0
-        for i in range(len(self.population.genes)):
-            if self.population.fitness[i]<self.population.fitness[wrstInd]:
-                wrstInd=i
-        print(self.population.genes[wrstInd])
-        print()
-        print("Average fitness after %i generations"%self.population.current_generation)
-        print(sum(self.population.fitness)/self.population.size)
+        print("Best individual after %i generations with a fitness of %0.3f"%(self.population.current_generation,self.population.fitness[0]))
+        print(self.population.genes[0])
+        print("Average individual after %i generations with an average fitness of %0.3f"%(self.population.current_generation,np.mean(self.population.fitness)))
+        print(np.average(self.population.genes,axis=0))
+        print("Worst individual after %i generations with a fitness of %0.3f"%(self.population.current_generation,self.population.fitness[-1]))
+        print(self.population.genes[-1])
         if plot:
             graphsize=7
             font = {"family": "serif",
@@ -199,4 +188,4 @@ class evoAlg:
             plt.show()
         #If <return_result>, the algorithm returns the most fit gene.
         if return_result:
-            return self.population.genes[bstInd]
+            return self.population.genes[0]
