@@ -745,7 +745,7 @@ def spline(sol,t_array):
         print("Length of sol: %i"%len(t_array))
         return None
 
-def FFT(sol,inverse=False,min_factor=32):
+def fft(sol,inverse=False,min_factor=32):
     #This method performs a 1D Fast Fourier Transform (of FFT) of the inputted 
     #signal of size N. The FFT is the fast version for calculating the DFT,
     #which is generally calculated through matrix-vector multiplication, an
