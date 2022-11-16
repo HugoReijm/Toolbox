@@ -7,3 +7,5 @@ import toolbox.generaltoolbox
 import toolbox.matrixtoolbox
 import toolbox.plottoolbox
 import toolbox.optimizetoolbox
+import toolbox.quadtree
+import toolbox.octree
