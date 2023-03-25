@@ -8,18 +8,48 @@ import matplotlib.colors as pltcolors
 
 #This file contains the triangle class and its various methods.
 class triangle(object):
-    def __init__(self,p1,p2,p3,constructedges=True):
+    def __init__(self,p1,p2,p3,e1,e2,e3):
         #This list keeps track of which points constitute the end-points of the triangle object.
         self.points=[p1,p2,p3]
         self.triagAv=None
         #This list keeps track of which edge constitute the boundaries of the triangle object.
-        self.edges=[]
+        self.edges=[e1,e2,e3]
+        self.order_edges()
         self.neighbors=[]
         self.interiorAngles=None
         self.triagArea=None
         self.index=-1
         self.circumCircle=None
             
+    def order_edges(self):
+        #This method adds edges to the triangle object in such a way that
+        #point 0 does not intersect with edge 0, point 1 does not intersect
+        #with edge 1, and point 2 does not intersect with edge 2.
+        temp=[]
+        
+        if not self.edges[0].point_edge_intersect(self.points[0]):
+            temp.append(self.edges[0])
+        elif not self.edges[1].point_edge_intersect(self.points[0]):
+            temp.append(self.edges[1])
+        else:
+            temp.append(self.edges[2])
+
+        if not self.edges[0].point_edge_intersect(self.points[1]):
+            temp.append(self.edges[0])
+        elif not self.edges[1].point_edge_intersect(self.points[1]):
+            temp.append(self.edges[1])
+        else:
+            temp.append(self.edges[2])
+
+        if not self.edges[0].point_edge_intersect(self.points[2]):
+            temp.append(self.edges[0])
+        elif not self.edges[1].point_edge_intersect(self.points[2]):
+            temp.append(self.edges[1])
+        else:
+            temp.append(self.edges[2])
+        
+        self.edges=temp    
+    
     def is_triangle(self,t,errtol=1e-12):
         #This method compares whether two triangles are equal or not.
         if (self.points[0].is_point(t.points[0],errtol=errtol)
@@ -47,7 +77,7 @@ class triangle(object):
               and self.points[2].is_point(t.points[0],errtol=errtol)):
             return True
         return False
-    
+                
     def update(self):
         #For each end-point of the triangle object, this method adds the triangle to the point's list of triangles it is a constituent of.
         #For each boundary edge of the triangle object, this method adds the triangle to the edge's list of triangles it is a constituent of.
@@ -79,26 +109,9 @@ class triangle(object):
     def angles(self):
         #This method computes the interior angles of the triangle object and makes the interior angles object a singleton.
         if self.interiorAngles is None:
-            if len(self.edges)==3:
-                angle0=0
-                for i in range(3):
-                    if not self.edges[i].points[0].is_point(self.points[0]) and not self.edges[i].points[1].is_point(self.points[0]):
-                        angle0=np.acos((sum([self.edges[j].length()**2 for j in range(3) if j!=i])-self.edges[i].length()**2)/(2*np.prod([self.edges[j].length() for j in range(3) if j!=i])))
-                        break
-                angle1=0
-                for i in range(3):
-                    if not self.edges[i].points[0].is_point(self.points[1]) and not self.edges[i].points[1].is_point(self.points[1]):
-                        angle1=np.acos((sum([self.edges[j].length()**2 for j in range(3) if j!=i])-self.edges[i].length()**2)/(2*np.prod([self.edges[j].length() for j in range(3) if j!=i])))
-                        break
-                angle2=np.pi-angle0-angle1
-            else:
-                a=np.sqrt((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2)
-                b=np.sqrt((self.points[2].x-self.points[0].x)**2+(self.points[2].y-self.points[0].y)**2)
-                c=np.sqrt((self.points[2].x-self.points[1].x)**2+(self.points[2].y-self.points[1].y)**2)
-                angle0=np.acos((a**2+b**2-c**2)/(2*a*b))
-                angle1=np.acos((a**2+c**2-b**2)/(2*a*c))
-                angle2=np.pi-angle0-angle1
-            self.interiorAngles=[angle0,angle1,angle2]
+            angle0=self.edges[1].angle(self.edges[2])
+            angle1=self.edges[0].angle(self.edges[2])
+            self.interiorAngles=[angle0,angle1,np.pi-angle0-angle1]
         return self.interiorAngles
     
     def point_triangle_intersect(self,pointVar,includeboundary=True,errtol=1e-12):
@@ -123,8 +136,6 @@ class triangle(object):
     def edge_triangle_intersect(self,edgeVar,includeboundary=True,errtol=1e-12):
         #This method returns whether an edge intersects the triangle object or not.
         #Distinction is made whether to include the boundaries of the triangle and edge objects or not.
-        if len(self.edges)==0:
-            self.edges=[edge(self.points[0],self.points[1]),edge(self.points[0],self.points[2]),edge(self.points[1],self.points[2])]
         if includeboundary:
             if any([self.point_triangle_intersect(p,errtol=errtol) for p in edgeVar.points]):
                 return True
@@ -178,10 +189,6 @@ class triangle(object):
     def triangle_triangle_intersect(self,triangle,includeboundary=True,errtol=1e-12):
         #This method returns whether an inputted triangle intersects the triangle object or not.
         #Distinction is made whether to include the boundaries of the triangle objects or not.
-        if len(self.edges)==0:
-            self.edges=[edge(self.points[0],self.points[1]),edge(self.points[0],self.points[2]),edge(self.points[1],self.points[2])]
-        if len(triangle.edges)==0:
-            triangle.edges=[edge(triangle.points[0],triangle.points[1]),edge(triangle.points[0],triangle.points[2]),edge(triangle.points[1],triangle.points[2])]
         return any([triangle.edge_triangle_intersect(e,includeboundary=includeboundary,errtol=errtol) for e in self.edges]) or any([self.edge_triangle_intersect(e,includeboundary=includeboundary,errtol=errtol) for e in triangle.edges])
     
     def circumcircle(self):
