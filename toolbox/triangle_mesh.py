@@ -151,14 +151,20 @@ class triangle_mesh(object):
         except Exception:
             pass
     
-    def triangle_search(self,p,errtol=1e-3):
+    def triangle_search(self,p,start_triangle=None,errtol=1e-3):
         #This method searches for the triangle that emcompasses a given point.
         #This method assumes that this point is in at least one triangle of our
         #triangular mesh.
         errtol=abs(errtol)
         if len(self.T)>0:
             #The method starts with a randomly chosen triangle in the mesh... 
-            t_index=np.random.randint(len(self.T))
+            if start_triangle is None:
+                t_index=np.random.randint(len(self.T))
+            else:
+                try:
+                    t_index=start_triangle.index
+                except Exception:
+                    t_index=np.random.randint(len(self.T))
             prev_t_index=t_index
             #...and checks if that triangle encompasses the given point.
             found_bool=self.T[t_index].point_triangle_intersect(p)
@@ -194,10 +200,11 @@ class triangle_mesh(object):
                 t_index=nt_index
                 found_bool=self.T[t_index].point_triangle_intersect(p)
                 counter+=1
-            return self.T[t_index]
+            if found_bool:
+                return self.T[t_index]
         return None
     
-    def insert_Vertex_Delaunay(self,p,on=False):
+    def insert_Vertex_Delaunay(self,p,return_changed_triangles=False):
         #This method inserts a point into a triangular mesh which is assumed
         #to fulfil the Delaunay requisite already. The point is then added
         #using the Bowyer-Watson Algorithm, which then results in a local
@@ -261,6 +268,7 @@ class triangle_mesh(object):
             #edges twice. All new edges and triangles are then also networked
             #into the mesh to conserve the global data structure.
             star_edges.clear()
+            good_triangles=[]
             for e in poly_edges:
                 e1=edge(e.points[0],p)
                 match_bool=False
@@ -288,12 +296,24 @@ class triangle_mesh(object):
                     self.E.append(e2)
                     star_edges.append(e2)
                 
-                t=triangle(e.points[0],e.points[1],p)
-                t.edges=[e,e1,e2]
+                t=triangle(e.points[0],e.points[1],p,e,e1,e2)
                 t.update()
                 t.index=len(self.T)
                 self.T.append(t)
+                good_triangles.append(t)
             
+            for good_t in good_triangles:
+                for good_e in good_t.edges:
+                    if len(good_e.triangles)==1:
+                        good_e.enclosed=False
+                    elif len(good_e.triangles)>1:
+                        good_e.enclosed=True
+            
+            if return_changed_triangles:
+                return good_triangles,bad_triangles
+        elif return_changed_triangles:
+            return [],[]
+        
     def triangulate(self,P,constraints=[]):    
         #This method performs the Bowyer-Watson triangle mesh generation
         #from a given set of points P. It first sets up a beginner triangle
@@ -331,8 +351,7 @@ class triangle_mesh(object):
         init_e3.update()
         self.E.append(init_e3)
         
-        init_t=triangle(init_p1,init_p2,init_p3)
-        init_t.edges=[init_e1,init_e2,init_e3]
+        init_t=triangle(init_p1,init_p2,init_p3,init_e1,init_e2,init_e3)
         init_t.index=0
         init_t.update()
         self.T=[init_t]
@@ -397,41 +416,60 @@ class triangle_mesh(object):
                 e.index+=1
             self.E.insert(temp_e_index,cross_edge)
             
-            #Constructs a new triagonal and inserts it into the global data
-            #structure in the same place as the original
-            cross_triangle_1=triangle(polygon_points[0],polygon_points[2],polygon_points[3])
-            cross_triangle_1.index=temp_t1_index
-            for i in range(2):
-                for j in range(i+1,3):
-                    match_bool=False
-                    for e1 in cross_triangle_1.points[i].edges:
-                        for e2 in cross_triangle_1.points[j].edges:
-                            if e1.is_edge(e2):
-                                cross_triangle_1.edges.append(e1)
-                                match_bool=True
-                                break
-                        if match_bool:
+            #Constructs a new triangle and inserts it into the global data
+            #structure in the same place as the original. It could be done
+            #easier, but triangles objects specifically require the edges to be
+            #found first before constructing the triangle...
+            cross_triangle_edges=[]
+            for j in range(2,4):
+                match_bool=False
+                for e1 in polygon_points[0].edges:
+                    for e2 in polygon_points[j].edges:
+                        if e1.is_edge(e2):
+                            cross_triangle_edges.append(e1)
+                            match_bool=True
                             break
+                    if match_bool:
+                        break
+            match_bool=False
+            for e1 in polygon_points[2].edges:
+                for e2 in polygon_points[3].edges:
+                    if e1.is_edge(e2):
+                        cross_triangle_edges.append(e1)
+                        match_bool=True
+                        break
+                if match_bool:
+                    break
+            
+            #...and now we can construct the first new triangle
+            cross_triangle_1=triangle(polygon_points[0],polygon_points[2],polygon_points[3],
+                                      cross_triangle_edges[0],cross_triangle_edges[1],cross_triangle_edges[2])
+            cross_triangle_1.index=temp_t1_index
             cross_triangle_1.update()
             for t in self.T[temp_t1_index:]:
                 t.index+=1
             self.T.insert(temp_t1_index,cross_triangle_1)
             
             #Constructs a second triangle and inserts it into the global data
-            #structure in the same place as the original
-            cross_triangle_2=triangle(polygon_points[1],polygon_points[2],polygon_points[3])
-            cross_triangle_2.index=temp_t2_index
-            for i in range(2):
-                for j in range(i+1,3):
+            #structure in the same place as the original. It could be done
+            #easier, but triangles objects specifically require the edges to be
+            #found first before constructing the triangle...
+            cross_triangle_edges=[]
+            for i in range(1,3):
+                for j in range(i+1,4):
                     match_bool=False
-                    for e1 in cross_triangle_2.points[i].edges:
-                        for e2 in cross_triangle_2.points[j].edges:
+                    for e1 in polygon_points[i].edges:
+                        for e2 in polygon_points[j].edges:
                             if e1.is_edge(e2):
-                                cross_triangle_2.edges.append(e1)
+                                cross_triangle_edges.append(e1)
                                 match_bool=True
                                 break
                         if match_bool:
                             break
+            #...and now we can construct the second triangle
+            cross_triangle_2=triangle(polygon_points[1],polygon_points[2],polygon_points[3],
+                                      cross_triangle_edges[0],cross_triangle_edges[1],cross_triangle_edges[2])
+            cross_triangle_2.index=temp_t2_index
             cross_triangle_2.update()
             for t in self.T[temp_t2_index:]:
                 t.index+=1
@@ -537,6 +575,90 @@ class triangle_mesh(object):
         for c in constraints:
             self.add_constraint(c)
     
+    def refine(self,min_angle=20,max_area=1.0,min_length=0.5,errtol=1e-6):
+        #This method implements Ruppert's refinement algorithm. It's goal is to
+        #retriangulates the mesh so that it looks cleaner. It will prioritize
+        #bad edges (edges whose circumcircle contains a non-end-point), splitting
+        #them in half (repeatedly if necessary). It then cleans up the triangles,
+        #inserting the circumcircles of bad triangles unless it causes another
+        #edge to be encroached. 
+        
+        #Cleans up the inputted parameters of the method
+        min_angle=abs((min_angle*np.pi/180)%np.pi)
+        max_area=abs(max_area)
+        min_length=2*abs(min_length)
+        errtol=abs(errtol)
+        
+        #Starts by first finding all the initially encroached edges
+        encroached_edges=[]
+        for e in self.E:
+            encroached_bool=False
+            for t in e.triangles:
+                for p in t.points:
+                    if not e.point_edge_intersect(p) and e.inCircumcircle(p) and e.length()>min_length:
+                        encroached_bool=True
+                        encroached_edges.append(e)
+                        break
+                if encroached_bool:
+                    break
+        
+        #Then also finds all the initial bad triangles
+        bad_triangles=[]
+        for t in self.T:
+            if t.area()>max_area or any([elem<min_angle for elem in t.angles()]):
+                bad_triangles.append(t)
+
+        #While there are still encroached edges or bad triangles...
+        while len(encroached_edges)>0 or len(bad_triangles)>0:
+            update_bool=False
+            
+            #...the method prioritizes inserting new points into the middle of
+            #any encroached edge...
+            if len(encroached_edges)>0:
+                inserted_point=encroached_edges[0].average()
+                inserted_triangles,deleted_triangles=self.insert_Vertex_Delaunay(inserted_point,return_changed_triangles=True)
+                del encroached_edges[0]
+                update_bool=True
+            #...or otherwise inserts the circumcircle of a bad triangle into
+            #the triangulation, so long as it doesn't fall outside of the
+            #triangulation already present.
+            else:
+                inserted_point=bad_triangles[0].circumcircle().center
+                if self.triangle_search(inserted_point,start_triangle=bad_triangles[0]) is not None:
+                    inserted_triangles,deleted_triangles=self.insert_Vertex_Delaunay(inserted_point,return_changed_triangles=True)
+                    update_bool=True
+                del bad_triangles[0]
+            
+            #The method also keeps track if the list of encroached edges and
+            #bad triangles needs to be updated, and does so by locally searching 
+            #through every new triangle that was inserted or every old triangle
+            #that was deleted.
+            if update_bool:
+                #Removing any no-longer-encroached edges from the list...
+                for i in range(len(encroached_edges)-1,-1,-1):
+                    if all([not elem.point_edge_intersect(encroached_edges[i].points[1]) for elem in encroached_edges[i].points[0].edges]):
+                        del encroached_edges[i]
+                #Removing any no-longer-bad triangles from the list...
+                for i in range(len(bad_triangles)-1,-1,-1):
+                    if any([elem.is_triangle(bad_triangles[i]) for elem in deleted_triangles]):
+                        del bad_triangles[i]
+                #Searching through all the new triangles and edges to see if
+                #any are bad or encroached
+                for good_t in inserted_triangles:
+                    for good_e in good_t.edges:
+                        if all([not good_e.is_edge(elem) for elem in encroached_edges]) and good_e.length()>min_length:
+                            encroached_bool=False
+                            for t in good_e.triangles:
+                                for p in t.points:
+                                    if not good_e.point_edge_intersect(p) and good_e.inCircumcircle(p):
+                                        encroached_bool=True
+                                        encroached_edges.append(good_e)
+                                        break
+                            if encroached_bool:
+                                break
+                    if good_t.area()>max_area or any([elem<min_angle for elem in good_t.angles()]):
+                        bad_triangles.append(good_t)
+
     def __repr__(self):
         #This method returns a string representation of the triangle mesh.
         string_rep="Number of Triangles: "+str(len(self.T))+"\n"
@@ -550,8 +672,12 @@ class triangle_mesh(object):
             string_rep+=str(p)+"\n"
         return string_rep
         
-    def draw(self,plotaxis=None,points=True,edges=True,fill=True,circumcircle=False,color="black",alpha=1):    
-        #This method plots the triangle mesh object into an inputted figure axis object.
+    def draw(self,plotaxis=None,show_triangles=True,show_edges=True,show_points=True,show_circumcircle=False,color="black",alpha=1):    
+        #This method plots the triangle mesh object into an inputted
+        #figure axis object.
+        
+        #This starts off the method and constructs a matplotlib figure and axis
+        #that the triangulation will be drawn on if none was provided.
         plotshowbool=False
         if plotaxis is None:
             plotfig=plt.figure(figsize=(graphsize,graphsize))
@@ -562,34 +688,35 @@ class triangle_mesh(object):
             plotaxis.xaxis.set_tick_params(labelsize=16)
             plotaxis.yaxis.set_tick_params(labelsize=16)
             plotshowbool=True
+        
         if sum(pltcolors.to_rgb(color))<=1.0:
             color_alt="white"
         else:
             color_alt="black"
             
-        if fill:
+        if show_triangles:
             face_color=color
-            if edges:
+            if show_edges:
                 edge_color=color_alt
             else:
                 edge_color=color
             for t in self.T:
                 plotaxis.add_patch(plt.Polygon([[p.x,p.y] for p in t.points],facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
-        elif edges:
+        elif show_edges:
             for e in self.E:
                 if e.constraint:
                     plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],linewidth=4,color=color,alpha=alpha,zorder=0)
                 else:
                     plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],color=color,alpha=alpha,zorder=0)
     
-        if circumcircle:
+        if show_circumcircle:
             theta=np.linspace(0,2*np.pi,100)
             for t in self.T:
                 plotaxis.plot(t.circumcircle().radius*np.cos(theta)+t.circumcircle().center.x,
                               t.circumcircle().radius*np.sin(theta)+t.circumcircle().center.y,
                               color="red",alpha=alpha)
-        if points:
-            if fill:
+        if show_points:
+            if show_triangles:
                 plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color_alt,alpha=alpha,zorder=1)
             else:
                 plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color,alpha=alpha,zorder=1)
