@@ -9,7 +9,7 @@ class edge(object):
     def __init__(self,p1,p2):
         #This list keeps track of which points constitute the end-points of the edge object.
         self.points=[p1,p2]
-        self.average=None
+        self.edgeAv=None
         #This list keeps track of which triangles the edge object is a constituent of.
         self.triangles=[]
         self.edgeLength=None
@@ -41,11 +41,16 @@ class edge(object):
     def length(self):
         #This method computes the length of the edge object and makes the length variable a singleton.
         if self.edgeLength is None:
-            self.edgeLength=np.sqrt((self.points[0].x-self.points[1].x)**2+(self.points[0].y-self.points[1].y)**2)
+            #self.edgeLength=np.sqrt((self.points[0].x-self.points[1].x)**2+(self.points[0].y-self.points[1].y)**2)
+            self.edgeLength=np.linalg.norm(np.array([self.points[0].x,self.points[0].y])-np.array([self.points[1].x,self.points[1].y]))
         return self.edgeLength
     
     def dot(self,e):
         #This method returns the 2-dimensional dot product of the edge object and another inputted edge.
+        if self.points[0].is_point(e.points[1]):
+            e.swap()
+        if e.points[0].is_point(self.points[1]):
+            self.swap()
         return (self.points[1].x-self.points[0].x)*(e.points[1].x-e.points[0].x)+(self.points[1].y-self.points[0].y)*(e.points[1].y-e.points[0].y) 
         
     def cross(self,e):
@@ -54,18 +59,18 @@ class edge(object):
     
     def angle(self,e):
         #This method computes the angle in radians between the edge object and another inputted edge.
-        #The output is signed, meaning that it tells what the angle is you would have to sweep through to go from this edge object to e.
-        if e.point_edge_intersect(self.points[1]):
-            self.swap()
-        if self.point_edge_intersect(e.points[1]):
-            e.swap()
-        return np.sign(self.cross(e))*np.arccos(self.dot(e)/(self.length()*e.length()))
+        return np.arccos(self.dot(e)/(self.length()*e.length()))
 
     def point_edge_intersect(self,p,includeboundary=True,errtol=1e-12):
         #This method returns whether an inputted point lies on the edge object or not.
         #Distinction is made whether to include the boundaries of the edge or not.
         #if abs((self.points[1].x-self.points[0].x)*(p.y-self.points[0].y)-(self.points[1].y-self.points[0].y)*(p.x-self.points[0].x))<abs(errtol):
-        if abs(self.cross(edge(self.points[0],p)))<abs(errtol):
+        if any([elem.is_point(p,errtol=errtol) for elem in self.points]):
+            if includeboundary:
+                return True
+            else:
+                return False
+        elif abs(self.cross(edge(self.points[0],p)))<abs(errtol):
             if ((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2-(p.x-self.points[0].x)**2-(p.y-self.points[0].y)**2>=-abs(errtol)
                 and (self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2-(p.x-self.points[1].x)**2-(p.y-self.points[1].y)**2>=-abs(errtol)):
                 if includeboundary:
@@ -166,7 +171,7 @@ class edge(object):
     def inCircumcircle(self,p,includeboundary=True,errtol=1e-12):
         #This method calculates whether an inputted point lies inside of the edge object's circumcircle.
         #Distinction is made whether to include the boundary of the circumcle or not.
-        pointd=point((self.points[0].x+self.points[1].x)/2,(self.points[0].y+self.points[1].y)/2)
+        pointd=self.average()
         pointc=point(self.points[0].y-pointd.y+pointd.x,pointd.x-self.points[0].x+pointd.y)
         if (self.points[1].x-self.points[0].x)*(pointc.y-self.points[1].y)-(self.points[1].y-self.points[0].y)*(pointc.x-self.points[1].x)>0:
             res=det([[self.points[0].x-p.x,self.points[1].x-p.x,pointc.x-p.x],
