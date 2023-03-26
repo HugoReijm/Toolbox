@@ -3,6 +3,8 @@ from toolbox.point import point
 from toolbox.edge import edge
 from toolbox.triangle import triangle
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import art3d
 import matplotlib.colors as pltcolors
 
 graphsize=9
@@ -658,7 +660,7 @@ class triangle_mesh(object):
                                 break
                     if good_t.area()>max_area or any([elem<min_angle for elem in good_t.angles()]):
                         bad_triangles.append(good_t)
-
+                
     def __repr__(self):
         #This method returns a string representation of the triangle mesh.
         string_rep="Number of Triangles: "+str(len(self.T))+"\n"
@@ -672,7 +674,7 @@ class triangle_mesh(object):
             string_rep+=str(p)+"\n"
         return string_rep
         
-    def draw(self,plotaxis=None,show_triangles=True,show_edges=True,show_points=True,show_circumcircle=False,color="black",alpha=1):    
+    def draw(self,plotaxis=None,show_triangles=True,show_edges=True,show_points=True,show_values=False,color="black",alpha=1):    
         #This method plots the triangle mesh object into an inputted
         #figure axis object.
         
@@ -680,15 +682,43 @@ class triangle_mesh(object):
         #that the triangulation will be drawn on if none was provided.
         plotshowbool=False
         if plotaxis is None:
-            plotfig=plt.figure(figsize=(graphsize,graphsize))
-            plotaxis=plotfig.add_subplot(111)
-            plotaxis.set_title("Function Point",fontdict=font)
+            if show_values:
+                plotaxis=Axes3D(plt.figure(figsize=(graphsize,graphsize)))
+                plotaxis.xaxis.set_rotate_label(False)
+                plotaxis.yaxis.set_rotate_label(False)
+                plotaxis.zaxis.set_rotate_label(False)
+                plotaxis.set_zlabel("$\\mathbf{Z}$",fontsize=16,rotation=0)
+                plotaxis.zaxis.set_tick_params(labelsize=16)
+            else:
+                plotfig=plt.figure(figsize=(graphsize,graphsize))
+                plotaxis=plotfig.add_subplot(111)
+            plotaxis.set_title("Triangulation",fontdict=font)
             plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
             plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
             plotaxis.xaxis.set_tick_params(labelsize=16)
             plotaxis.yaxis.set_tick_params(labelsize=16)
             plotshowbool=True
         
+        if show_values:
+            xlim=plotaxis.get_xlim()
+            ylim=plotaxis.get_ylim()
+            zlim=plotaxis.get_zlim()
+            start=[min([p.x for p in self.P]),min([p.y for p in self.P]),min([p.value for p in self.P])]
+            stop=[max([p.x for p in self.P]),max([p.y for p in self.P]),max([p.value for p in self.P])]
+            
+            if xlim!=(0.0,1.0):
+                plotaxis.set_xlim([min(xlim[0],start[0]),max(xlim[1],stop[0])])
+            else:
+                plotaxis.set_xlim([start[0],stop[0]])
+            if ylim!=(0.0,1.0):
+                plotaxis.set_ylim([min(ylim[0],start[1]),max(ylim[1],stop[1])])
+            else:
+                plotaxis.set_ylim([start[1],stop[1]])
+            if zlim!=(0.0,1.0):
+                plotaxis.set_zlim([min(zlim[0],start[2]),max(zlim[1],stop[2])])
+            else:
+                plotaxis.set_zlim([start[2],stop[2]])
+                
         if sum(pltcolors.to_rgb(color))<=1.0:
             color_alt="white"
         else:
@@ -700,26 +730,39 @@ class triangle_mesh(object):
                 edge_color=color_alt
             else:
                 edge_color=color
-            for t in self.T:
-                plotaxis.add_patch(plt.Polygon([[p.x,p.y] for p in t.points],facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
-        elif show_edges:
-            for e in self.E:
-                if e.constraint:
-                    plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],linewidth=4,color=color,alpha=alpha,zorder=0)
-                else:
-                    plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],color=color,alpha=alpha,zorder=0)
-    
-        if show_circumcircle:
-            theta=np.linspace(0,2*np.pi,100)
-            for t in self.T:
-                plotaxis.plot(t.circumcircle().radius*np.cos(theta)+t.circumcircle().center.x,
-                              t.circumcircle().radius*np.sin(theta)+t.circumcircle().center.y,
-                              color="red",alpha=alpha)
-        if show_points:
-            if show_triangles:
-                plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color_alt,alpha=alpha,zorder=1)
+            if show_values:
+                plotaxis.add_collection3d(art3d.Poly3DCollection([((t.points[0].x,t.points[0].y,t.points[0].value),
+                                                                   (t.points[1].x,t.points[1].y,t.points[1].value),
+                                                                   (t.points[2].x,t.points[2].y,t.points[2].value)) for t in self.T],
+                                                                 facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
             else:
-                plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color,alpha=alpha,zorder=1)
+                for t in self.T:
+                    plotaxis.add_patch(plt.Polygon([[p.x,p.y] for p in t.points],facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
+        elif show_edges:
+            if show_values:
+                for e in self.E:
+                    if e.constraint:
+                        plotaxis.plot3D([p.x for p in e.points],[p.y for p in e.points],[p.value for p in e.points],linewidth=4,color=color,alpha=alpha,zorder=0)
+                    else:
+                        plotaxis.plot3D([p.x for p in e.points],[p.y for p in e.points],[p.value for p in e.points],color=color,alpha=alpha,zorder=0)
+            else:
+                for e in self.E:
+                    if e.constraint:
+                        plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],linewidth=4,color=color,alpha=alpha,zorder=0)
+                    else:
+                        plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],color=color,alpha=alpha,zorder=0)
+    
+        if show_points:
+            if show_values:
+                if show_triangles:
+                    plotaxis.scatter3D([p.x for p in self.P],[p.y for p in self.P],[p.value for p in self.P],facecolor=color,edgecolor=color_alt,alpha=alpha,zorder=1)
+                else:
+                    plotaxis.scatter3D([p.x for p in self.P],[p.y for p in self.P],[p.value for p in self.P],facecolor=color,edgecolor=color,alpha=alpha,zorder=1)
+            else:
+                if show_triangles:
+                    plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color_alt,alpha=alpha,zorder=1)
+                else:
+                    plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color,alpha=alpha,zorder=1)
         
         if plotshowbool:
             plt.show()
