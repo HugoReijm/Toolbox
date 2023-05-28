@@ -1,7 +1,6 @@
 import numpy as np
-from numpy.linalg import det
 from toolbox.point import point
-from toolbox.circle import circle
+from toolbox.sphere import sphere
 import matplotlib.colors as pltcolors
 
 #This file contains the edge class and its various methods.
@@ -16,14 +15,16 @@ class edge(object):
         self.enclosed=True
         self.constraint=False
         self.index=-1
-        self.circumCircle=None
+        self.circumSphere=None
         
     def is_edge(self,e,errtol=1e-12):
         #This method compares whether two edges are equal or not.
-        return isinstance(e,edge) and ((self.points[0].is_point(e.points[0],errtol=errtol)
-                                        and self.points[1].is_point(e.points[1],errtol=errtol))
-                                        or (self.points[0].is_point(e.points[1],errtol=errtol)
-                                        and self.points[1].is_point(e.points[0],errtol=errtol)))
+        for i in range(2):
+            if self.points[0].is_point(e.points[i],errtol=errtol):
+                for j in range(2):
+                    if j!=i and self.points[1].is_point(e.points[j],errtol=errtol):
+                        return True
+        return False
         
     def update(self):
         #For each end-point of the edge object, this method adds the edge to the point's list of edges it is a constituent of.
@@ -36,26 +37,75 @@ class edge(object):
             self.edgeAv=self.points[0]+self.points[1]
             self.edgeAv.x/=2.0
             self.edgeAv.y/=2.0
+            self.edgeAv.z/=2.0
         return self.edgeAv
     
     def length(self):
         #This method computes the length of the edge object and makes the length variable a singleton.
         if self.edgeLength is None:
-            #self.edgeLength=np.sqrt((self.points[0].x-self.points[1].x)**2+(self.points[0].y-self.points[1].y)**2)
-            self.edgeLength=np.linalg.norm(np.array([self.points[0].x,self.points[0].y])-np.array([self.points[1].x,self.points[1].y]))
+            self.edgeLength=self.points[0].distance(self.points[1])
         return self.edgeLength
+    
+    def is_longer_than(self,dist,or_equal_to=False):
+        #This method computes whether the edge is longer (or equal to) a certain
+        #distance without using a square root function (which isnotoriously slow)
+        if or_equal_to:
+            return (self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2+(self.points[1].z-self.points[0].z)**2>=dist
+        else:
+            return (self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2+(self.points[1].z-self.points[0].z)**2>dist
+        
+    def is_shorter_than(self,dist,or_equal_to=False):
+        #This method computes whether the edge is shorter (or equal to) a certain
+        #distance without using a square root function (which isnotoriously slow)
+        if or_equal_to:
+            return (self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2+(self.points[1].z-self.points[0].z)**2<=dist
+        else:
+            return (self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2+(self.points[1].z-self.points[0].z)**2<dist
     
     def dot(self,e):
         #This method returns the 2-dimensional dot product of the edge object and another inputted edge.
-        if self.points[0].is_point(e.points[1]):
-            e.swap()
-        if e.points[0].is_point(self.points[1]):
-            self.swap()
-        return (self.points[1].x-self.points[0].x)*(e.points[1].x-e.points[0].x)+(self.points[1].y-self.points[0].y)*(e.points[1].y-e.points[0].y) 
-        
+        if self.points[0].is_point(e.points[0]):
+            return ((self.points[1].x-self.points[0].x)*(e.points[1].x-e.points[0].x)
+                    +(self.points[1].y-self.points[0].y)*(e.points[1].y-e.points[0].y)
+                    +(self.points[1].z-self.points[0].z)*(e.points[1].z-e.points[0].z))
+        elif self.points[0].is_point(e.points[1]):
+            return ((self.points[1].x-self.points[0].x)*(e.points[0].x-e.points[1].x)
+                    +(self.points[1].y-self.points[0].y)*(e.points[0].y-e.points[1].y)
+                    +(self.points[1].z-self.points[0].z)*(e.points[0].z-e.points[1].z))
+        elif self.points[1].is_point(e.points[0]):
+            return ((self.points[0].x-self.points[1].x)*(e.points[1].x-e.points[0].x)
+                    +(self.points[0].y-self.points[1].y)*(e.points[1].y-e.points[0].y)
+                    +(self.points[0].z-self.points[1].z)*(e.points[1].z-e.points[0].z))
+        elif self.points[1].is_point(e.points[1]):
+            return ((self.points[0].x-self.points[1].x)*(e.points[0].x-e.points[1].x)
+                    +(self.points[0].y-self.points[1].y)*(e.points[0].y-e.points[1].y)
+                    +(self.points[0].z-self.points[1].z)*(e.points[0].z-e.points[1].z))
+        return None
+    
     def cross(self,e):
-        #This method returns the 2-dimensional "cross product" of the edge object and another inputted edge.
-        return (self.points[1].x-self.points[0].x)*(e.points[1].y-e.points[0].y)-(self.points[1].y-self.points[0].y)*(e.points[1].x-e.points[0].x)
+        #This method returns the cross product of the edge object and another inputted edge.
+        if self.points[0].is_point(e.points[0]):
+            cross_x=(self.points[1].y-self.points[0].y)*(e.points[1].z-e.points[0].z)-(self.points[1].z-self.points[0].z)*(e.points[1].y-e.points[0].y)
+            cross_y=(self.points[1].z-self.points[0].z)*(e.points[1].x-e.points[0].x)-(self.points[1].x-self.points[0].x)*(e.points[1].z-e.points[0].z)
+            cross_z=(self.points[1].x-self.points[0].x)*(e.points[1].y-e.points[0].y)-(self.points[1].y-self.points[0].y)*(e.points[1].x-e.points[0].x)
+            return edge(point(cross_x,cross_y,cross_z),point(0.0,0.0,0.0))
+        elif self.points[0].is_point(e.points[1]):
+            cross_x=(self.points[1].y-self.points[0].y)*(e.points[0].z-e.points[1].z)-(self.points[1].z-self.points[0].z)*(e.points[0].y-e.points[1].y)
+            cross_y=(self.points[1].z-self.points[0].z)*(e.points[0].x-e.points[1].x)-(self.points[1].x-self.points[0].x)*(e.points[0].z-e.points[1].z)
+            cross_z=(self.points[1].x-self.points[0].x)*(e.points[0].y-e.points[1].y)-(self.points[1].y-self.points[0].y)*(e.points[0].x-e.points[1].x)
+            return edge(point(cross_x,cross_y,cross_z),point(0.0,0.0,0.0))
+        elif self.points[1].is_point(e.points[0]):
+            cross_x=(self.points[0].y-self.points[1].y)*(e.points[1].z-e.points[0].z)-(self.points[0].z-self.points[1].z)*(e.points[1].y-e.points[0].y)
+            cross_y=(self.points[0].z-self.points[1].z)*(e.points[1].x-e.points[0].x)-(self.points[0].x-self.points[1].x)*(e.points[1].z-e.points[0].z)
+            cross_z=(self.points[0].x-self.points[1].x)*(e.points[1].y-e.points[0].y)-(self.points[0].y-self.points[1].y)*(e.points[1].x-e.points[0].x)
+            return edge(point(cross_x,cross_y,cross_z),point(0.0,0.0,0.0))
+        elif self.points[1].is_point(e.points[1]):
+            cross_x=(self.points[0].y-self.points[1].y)*(e.points[0].z-e.points[1].z)-(self.points[0].z-self.points[1].z)*(e.points[0].y-e.points[1].y)
+            cross_y=(self.points[0].z-self.points[1].z)*(e.points[0].x-e.points[1].x)-(self.points[0].x-self.points[1].x)*(e.points[0].z-e.points[1].z)
+            cross_z=(self.points[0].x-self.points[1].x)*(e.points[0].y-e.points[1].y)-(self.points[0].y-self.points[1].y)*(e.points[0].x-e.points[1].x)
+            return edge(point(cross_x,cross_y,cross_z),point(0.0,0.0,0.0))
+        return None
+        #return (self.points[1].x-self.points[0].x)*(e.points[1].y-e.points[0].y)-(self.points[1].y-self.points[0].y)*(e.points[1].x-e.points[0].x)
     
     def angle(self,e):
         #This method computes the angle in radians between the edge object and another inputted edge.
@@ -64,113 +114,111 @@ class edge(object):
     def point_edge_intersect(self,p,includeboundary=True,errtol=1e-12):
         #This method returns whether an inputted point lies on the edge object or not.
         #Distinction is made whether to include the boundaries of the edge or not.
-        #if abs((self.points[1].x-self.points[0].x)*(p.y-self.points[0].y)-(self.points[1].y-self.points[0].y)*(p.x-self.points[0].x))<abs(errtol):
-        if any([elem.is_point(p,errtol=errtol) for elem in self.points]):
+        errtol=abs(errtol)
+        if any([p.is_point(elem,errtol=errtol) for elem in self.points]):
             if includeboundary:
                 return True
             else:
                 return False
-        elif abs(self.cross(edge(self.points[0],p)))<abs(errtol):
-            if ((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2-(p.x-self.points[0].x)**2-(p.y-self.points[0].y)**2>=-abs(errtol)
-                and (self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2-(p.x-self.points[1].x)**2-(p.y-self.points[1].y)**2>=-abs(errtol)):
+        else:
+            e1=edge(self.points[0],p)
+            e2=edge(self.points[1],p)
+            if (self.cross(e1).is_shorter_than(errtol)
+                and e1.is_shorter_than(self.length()+errtol,or_equal_to=True)
+                and e2.is_shorter_than(self.length()+errtol,or_equal_to=True)):
                 if includeboundary:
                     return True
-                elif abs(p.x-self.points[0].x)>abs(errtol) or abs(p.y-self.points[0].y)>abs(errtol):
+                elif (not p.is_point(self.points[0],errtol=errtol)
+                      and not p.is_point(self.points[1],errtol=errtol)):
                     return True
                 else:
                     return False
         return False
 
-    def edge_edge_intersect(self,e,includeboundary=True,errtol=1e-12):
+    def edge_edge_intersect(self,e,includeboundary=True,errtol=1e-6):
         #This method returns whether the edge object intersects the other inputted edge.
         #Distinction is made whether to include the boundaries of the edges or not.
-        #If the edges do intersect, the method can either return true or false, or return the intersection. 
+        #If the edges do intersect. 
         if self.is_edge(e):
             return self
         
-        cross_prod=-self.cross(e)
-        if abs(cross_prod)>abs(errtol):
-            s1=-edge(self.points[0],e.points[0]).cross(e)/cross_prod
-            s2=-edge(self.points[0],e.points[0]).cross(self)/cross_prod
-            #s1=((e.points[0].x-self.points[0].x)*(e.points[0].y-e.points[1].y)-(e.points[0].y-self.points[0].y)*(e.points[0].x-e.points[1].x))/cross_prod
-            #s2=((e.points[0].x-self.points[0].x)*(self.points[0].y-self.points[1].y)+(e.points[0].y-self.points[0].y)*(self.points[1].x-self.points[0].x))/cross_prod
-            if (includeboundary and -abs(errtol)<=s1<=1+abs(errtol) and -abs(errtol)<=s2<=1+abs(errtol)) or (not includeboundary and abs(errtol)<s1<1-abs(errtol) and abs(errtol)<s2<1-abs(errtol)):
-                return point(self.points[0].x+s1*(self.points[1].x-self.points[0].x),self.points[0].y+s1*(self.points[1].y-self.points[0].y))
-        elif abs(self.cross(edge(self.points[1],e.points[0])))<=abs(errtol):
-            if abs(self.points[1].x-self.points[0].x)>=abs(self.points[1].y-self.points[0].y):
-                if self.points[1].x>self.points[0].x:
-                    min1,max1=0,1
+        errtol=abs(errtol)
+        
+        #An edge is a 1D object that can be expressed as X_0+tau*(X_1-X_0) with
+        #0<=tau<=1. The method sets up the equations for both edges, sets them
+        #equal to each other, and rearranges them into a 3x2 system of equations...
+        A=np.array([[e.points[0].x-e.points[1].x,self.points[1].x-self.points[0].x],
+                    [e.points[0].y-e.points[1].y,self.points[1].y-self.points[0].y],
+                    [e.points[0].z-e.points[1].z,self.points[1].z-self.points[0].z]])
+        b=np.array([e.points[0].x-self.points[0].x,
+                    e.points[0].y-self.points[0].y,
+                    e.points[0].z-self.points[0].z])
+        
+        #...which it then tries to solve. If this is solvable, the method returns
+        #the intersection point. If this isn't solvable, this means that the
+        #two edges are parrallel.
+        for i in range(0,2):
+            for j in range(i+1,3):
+                try:
+                    tau=np.linalg.solve(A[[i,j]],b[[i,j]])
+                    if max(abs(np.dot(A,tau)-b))<errtol:
+                        if ((includeboundary and max(tau)<=1+errtol and min(tau)>=-errtol)
+                            or (not includeboundary and max(tau)<1-errtol and min(tau)>errtol)):
+                            if abs(tau[1])<=errtol:
+                                return self.points[0]
+                            elif abs(tau[1]-1)<=errtol:
+                                return self.points[1]
+                            else:
+                                return self.points[0]+point(tau[1],tau[1],tau[1])*(self.points[1]-self.points[0])
+                        else:
+                            return None
+                    else:
+                        break
+                except Exception:
+                    pass
+        
+        #The two edges must be parallel from here on out, but they might still
+        #intersect. The method now sees this edge object as 3D straight line,
+        #again parameterized by the variable tau. It then takes the endpoints of
+        #the other edge, finds the closest points on this edge object to those
+        #endpoints, and sees if they are close enough.
+        tau_1=edge(e.points[0],self.points[0]).dot(self)/(self.dot(self))
+        if edge(self.points[0]+point(tau_1,tau_1,tau_1)*(self.points[1]-self.points[0]),e.points[0]).is_shorter_than(errtol):
+            #If the edges are close enough, then the method finds the
+            #intersection between the edges.
+            tau_2=edge(e.points[1],self.points[0]).dot(self)/(self.dot(self))
+            tau_array=sorted([0,tau_1,tau_2,1])
+            if abs(tau_array[1])<=errtol:
+                if abs(tau_array[2]-1)<=errtol:
+                    return self
                 else:
-                    min1,max1=1,0
-                if e.points[1].x>e.points[0].x:
-                    min2,max2=0,1
-                else:
-                    min2,max2=1,0
-                if includeboundary:
-                    if self.points[min1].x-abs(errtol)<=e.points[min2].x<=self.points[max1].x+abs(errtol) and self.points[max1].x<=e.points[max2].x+abs(errtol):
-                        if abs(self.points[max1].x-e.points[min2].x)<=abs(errtol):
-                            return self.points[max1].copy()
-                        return edge(e.points[min2],self.points[max1])
-                    elif e.points[min2].x<=self.points[min1].x+abs(errtol) and self.points[min1].x-abs(errtol)<=e.points[max2].x<=self.points[max1].x+abs(errtol):
-                        if abs(self.points[min1].x-e.points[max2].x)<=abs(errtol):
-                            return self.points[min1].copy()
-                        return edge(self.points[min1],e.points[max2])
-                    elif self.points[min1].x-abs(errtol)<=e.points[min2].x<=self.points[max1].x+abs(errtol) and self.points[min1].x-abs(errtol)<=e.points[max2].x<=self.points[max1].x+abs(errtol):
-                        return edge(e.points[min2],e.points[max2])
-                    elif e.points[min2].x-abs(errtol)<=self.points[min1].x<=e.points[max2].x+abs(errtol) and e.points[min2].x-abs(errtol)<=self.points[max1].x<=e.points[max2].x+abs(errtol):
-                        return edge(self.points[min1],self.points[max1])
-                else:
-                    if self.points[min1].x-abs(errtol)<=e.points[min2].x<self.points[max1].x-abs(errtol) and self.points[max1].x<=e.points[max2].x+abs(errtol):
-                        return edge(e.points[min2],self.points[max1])
-                    elif e.points[min2].x<=self.points[min1].x+abs(errtol) and self.points[min1].x+abs(errtol)<e.points[max2].x<=self.points[max1].x+abs(errtol):
-                        return edge(self.points[min1],e.points[max2])
-                    elif self.points[min1].x-abs(errtol)<=e.points[min2].x<=self.points[max1].x+abs(errtol) and self.points[min1].x-abs(errtol)<=e.points[max2].x<=self.points[max1].x+abs(errtol):
-                        return edge(e.points[min2],e.points[max2])
-                    elif e.points[min2].x-abs(errtol)<=self.points[min1].x<=e.points[max2].x+abs(errtol) and e.points[min2].x-abs(errtol)<=self.points[max1].x<=e.points[max2].x+abs(errtol):
-                        return edge(self.points[min1],self.points[max1])
+                    return edge(self.points[0],
+                             self.points[0]+point(tau_array[2],tau_array[2],tau_array[2])*(self.points[1]-self.points[0]))
             else:
-                if self.points[1].y>self.points[0].y:
-                    min1,max1=0,1
+                if abs(tau_array[2]-1)<=errtol:
+                    return edge(self.points[0]+point(tau_array[1],tau_array[1],tau_array[1])*(self.points[1]-self.points[0]),
+                             self.points[1])
                 else:
-                    min1,max1=1,0
-                if e.points[1].y>e.points[0].y:
-                    min2,max2=0,1
-                else:
-                    min2,max2=1,0
-                if includeboundary:
-                    if self.points[min1].y-abs(errtol)<=e.points[min2].y<=self.points[max1].y+abs(errtol) and self.points[max1].y<=e.points[max2].y+abs(errtol):
-                        if abs(self.points[max1].y-e.points[min2].y)<=abs(errtol):
-                            return self.points[max1].copy()
-                        return edge(e.points[min2],self.points[max1])
-                    elif e.points[min2].y<=self.points[min1].y+abs(errtol) and self.points[min1].y-abs(errtol)<=e.points[max2].y<=self.points[max1].y+abs(errtol):
-                        if abs(self.points[min1].y-e.points[max2].y)<=abs(errtol):
-                            return self.points[min1].copy()
-                        return edge(self.points[min1],e.points[max2])
-                    elif self.points[min1].y-abs(errtol)<=e.points[min2].y<=self.points[max1].y+abs(errtol) and self.points[min1].y-abs(errtol)<=e.points[max2].y<=self.points[max1].y+abs(errtol):
-                        return edge(e.points[min2],e.points[max2])
-                    elif e.points[min2].y-abs(errtol)<=self.points[min1].y<=e.points[max2].y+abs(errtol) and e.points[min2].y-abs(errtol)<=self.points[max1].y<=e.points[max2].y+abs(errtol):
-                        return edge(self.points[min1],self.points[max1])
-                else:
-                    if self.points[min1].y-abs(errtol)<=e.points[min2].y<self.points[max1].y-abs(errtol) and self.points[max1].y<=e.points[max2].y+abs(errtol):
-                        return edge(e.points[min2],self.points[max1])
-                    elif e.points[min2].y<=self.points[min1].y+abs(errtol) and self.points[min1].y+abs(errtol)<e.points[max2].y<=self.points[max1].y+abs(errtol):
-                        return edge(self.points[min1],e.points[max2])
-                    elif self.points[min1].y-abs(errtol)<=e.points[min2].y<=self.points[max1].y+abs(errtol) and self.points[min1].y-abs(errtol)<=e.points[max2].y<=self.points[max1].y+abs(errtol):
-                        return edge(e.points[min2],e.points[max2])
-                    elif e.points[min2].y-abs(errtol)<=self.points[min1].y<=e.points[max2].y+abs(errtol) and e.points[min2].y-abs(errtol)<=self.points[max1].y<=e.points[max2].y+abs(errtol):
-                        return edge(self.points[min1],self.points[max1])
+                    return edge(self.points[0]+point(tau_array[1],tau_array[1],tau_array[1])*(self.points[1]-self.points[0]),
+                             self.points[0]+point(tau_array[2],tau_array[2],tau_array[2])*(self.points[1]-self.points[0]))
         return None
     
-    def circumcircle(self):
+    def circumsphere(self):
         #This method returns the smallest circumcircle of the edge object and makes the circumcircl object a singleton.
-        if self.circumCircle is None:
-            self.circumCircle=circle(point((self.points[0].x+self.points[1].x)/2,(self.points[0].y+self.points[1].y)/2),
-                                     np.sqrt((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2)/2)
-        return self.circumCircle
+        if self.circumSphere is None:
+            self.circumSphere=sphere(self.average(),self.points[0].distance(self.points[1])/2.0)
+        return self.circumSphere
     
-    def inCircumcircle(self,p,includeboundary=True,errtol=1e-12):
+    def inCircumsphere(self,p,includeboundary=True,errtol=1e-12):
         #This method calculates whether an inputted point lies inside of the edge object's circumcircle.
         #Distinction is made whether to include the boundary of the circumcle or not.
+        center=self.average()
+        if includeboundary and (p.x-center.x)**2+(p.y-center.y)**2+(p.z-center.z)**2<=((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2+(self.points[1].z-self.points[0].z)**2)/4.0+abs(errtol):
+            return True
+        elif not includeboundary and (p.x-center.x)**2+(p.y-center.y)**2+(p.z-center.z)**2<((self.points[1].x-self.points[0].x)**2+(self.points[1].y-self.points[0].y)**2+(self.points[1].z-self.points[0].z)**2)/4.0-abs(errtol):
+            return True
+        return False
+        """
         pointd=self.average()
         pointc=point(self.points[0].y-pointd.y+pointd.x,pointd.x-self.points[0].x+pointd.y)
         if (self.points[1].x-self.points[0].x)*(pointc.y-self.points[1].y)-(self.points[1].y-self.points[0].y)*(pointc.x-self.points[1].x)>0:
@@ -185,10 +233,7 @@ class edge(object):
             return res>=-abs(errtol)
         else:
             return res>abs(errtol)
-    
-    def swap(self):
-        #This method swaps the local indexes of the end-points of the edge object.
-        self.points.reverse()
+        """
     
     def __repr__(self):
         #This method returns a string representation of the edge object.
@@ -203,25 +248,44 @@ class edge(object):
             e.edgeAv=self.edgeAv.copy()
         if self.edgeLength is not None:
             e.edgeLength=self.edgeLength
-        if self.circumcircle is not None:
-            e.circumcircle=self.circumcircle.copy()
+        if self.circumsphere is not None:
+            e.circumsphere=self.circumsphere.copy()
         if not blank:
             e.enclosed=self.enclosed
             e.constraint=self.constraint
         return e
 
-    def draw(self,plotaxis,points=True,color="black",alpha=1):
+    def draw(self,plotaxis,points=True,flat=True,color="black",alpha=1):
         #This method plots the edge object into an inputted figure axis object. 
-        if self.constraint:
-            plotaxis.plot([self.points[0].x,self.points[1].x],
-                          [self.points[0].y,self.points[1].y],lw=4,color=color,alpha=alpha)
-        else:
-            plotaxis.plot([self.points[0].x,self.points[1].x],
-                          [self.points[0].y,self.points[1].y],color=color,alpha=alpha)
-        if points:
-            if sum(pltcolors.to_rgb(color))<=1.0:
-                plotaxis.scatter([self.points[0].x,self.points[1].x],
-                                 [self.points[0].y,self.points[1].y],facecolor=color,edgecolor="white",alpha=alpha)
+        if flat:
+            if self.constraint:
+                plotaxis.plot([self.points[0].x,self.points[1].x],
+                              [self.points[0].y,self.points[1].y],lw=4,color=color,alpha=alpha)
             else:
-                plotaxis.scatter([self.points[0].x,self.points[1].x],
-                                 [self.points[0].y,self.points[1].y],facecolor=color,edgecolor="black",alpha=alpha)
+                plotaxis.plot([self.points[0].x,self.points[1].x],
+                              [self.points[0].y,self.points[1].y],color=color,alpha=alpha)
+            if points:
+                if sum(pltcolors.to_rgb(color))<=1.0:
+                    plotaxis.scatter([self.points[0].x,self.points[1].x],
+                                     [self.points[0].y,self.points[1].y],facecolor=color,edgecolor="white",alpha=alpha)
+                else:
+                    plotaxis.scatter([self.points[0].x,self.points[1].x],
+                                     [self.points[0].y,self.points[1].y],facecolor=color,edgecolor="black",alpha=alpha)
+        else:        
+            if self.constraint:
+                plotaxis.plot3D([self.points[0].x,self.points[1].x],
+                                [self.points[0].y,self.points[1].y],
+                                [self.points[0].z,self.points[1].z],lw=4,color=color,alpha=alpha)
+            else:
+                plotaxis.plot3D([self.points[0].x,self.points[1].x],
+                                [self.points[0].y,self.points[1].y],
+                                [self.points[0].z,self.points[1].z],color=color,alpha=alpha)
+            if points:
+                if sum(pltcolors.to_rgb(color))<=1.0:
+                    plotaxis.scatter([self.points[0].x,self.points[1].x],
+                                     [self.points[0].y,self.points[1].y],
+                                     [self.points[0].z,self.points[1].z],facecolor=color,edgecolor="white",alpha=alpha)
+                else:
+                    plotaxis.scatter([self.points[0].x,self.points[1].x],
+                                     [self.points[0].y,self.points[1].y],
+                                     [self.points[0].z,self.points[1].z],facecolor=color,edgecolor="black",alpha=alpha)
