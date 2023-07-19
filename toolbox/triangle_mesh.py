@@ -3,8 +3,7 @@ from toolbox.point import point
 from toolbox.edge import edge
 from toolbox.triangle import triangle
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d import art3d
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.colors as pltcolors
 
 graphsize=9
@@ -14,146 +13,63 @@ font = {"family": "serif",
     "size": "20"}
 
 class triangle_mesh(object):
-    def __init__(self,P):
+    def __init__(self,X,Y):
         self.P=[]
         self.E=[]
         self.T=[]
-        self.triangulate(P)
+        self.triangulate(X,Y)
     
-    def delete_point(self,point_index):
-        #This method deletes a given point and in doing so deletes any edges or
-        #triangles that are attached. Care is taken to also update the global
-        #data structure.
-        #Dealing with the attached triangles...
-        for t in self.P[point_index].triangles:
-            for nt in self.T[t.index].neighbors:
-                try:
-                    nt.neighbors.remove(self.T[t.index])
-                except Exception:
-                    pass
-            for e in self.T[t.index].edges:
-                try:
-                    e.triangles.remove(self.T[t.index])
-                except Exception:
-                    pass
-            for p in self.T[t.index].points:
-                if not self.P[point_index].is_point(p):
-                    try:
-                        p.triangles.remove(self.T[t.index])
-                    except Exception:
-                        pass
-            try:
-                t_index=t.index
-                del self.T[t_index]
-                for i in range(t_index,len(self.T)):
-                    self.T[i].index-=1
-            except Exception:
-                pass
+    def triangulate(self,X,Y):    
+        #This method performs the Bowyer-Watson triangle mesh generation
+        #from a given set of points P. It first sets up a beginner triangle
+        #that encompasses all points, and then iteratively adds all points one
+        #by one, retriangulating locally as it goes.
         
-        #Dealing with the attached edges...
-        for e in self.P[point_index].edges:
-            for t in self.E[e.index].triangles:
-                try:
-                    t.edges.remove(self.E[e.index])
-                except Exception:
-                    pass
-            for p in self.E[e.index].points:
-                if not self.P[point_index].is_point(p):
-                    try:
-                        p.edges.remove(self.E[e.index])
-                    except Exception:
-                        pass
-            try:
-                e_index=e.index
-                del self.E[e_index]
-                for i in range(e_index,len(self.E)):
-                    self.E[i].index-=1
-            except Exception:
-                pass
+        #Set up of initial triangle that encompasses all the points
+        maxX,minX=max(X),min(X)
+        maxY,minY=max(Y),min(Y)
+        cx,cy=(maxX+minX)/2,(maxY+minY)/2
+        r=1.1*np.sqrt((maxX-minX)**2+(maxY-minY)**2)/2
+        sqrt3r=np.sqrt(3)*r
+        init_p1=point(cx,cy+2*r,0)
+        init_p1.index=0
+        init_p2=point(cx+sqrt3r,cy-r,0)
+        init_p2.index=1
+        init_p3=point(cx-sqrt3r,cy-r,0)
+        init_p3.index=2
+        self.P=[init_p1,init_p2,init_p3]
         
-        #Dealing with the point itself...
-        try:
-            del self.P[point_index]
-            for i in range(point_index,len(self.P)):
-                self.P[i].index-=1
-        except Exception:
-            pass
+        init_e1=edge(init_p1,init_p2)
+        init_e1.index=0
+        init_e1.update_network()
+        init_e2=edge(init_p1,init_p3)
+        init_e2.index=1
+        init_e2.update_network()
+        init_e3=edge(init_p2,init_p3)
+        init_e3.index=2
+        init_e3.update_network()
+        self.E=[init_e1,init_e2,init_e3]
         
-    def delete_edge(self,edge_index):
-        #This method deletes a given edge and in doing so deletes any triangles
-        #that are attached. Care is taken to also update the global
-        #data structure.
-        #Dealing with the points...
-        for p in self.E[edge_index].points:
-            try:
-                p.edges.remove(self.E[edge_index])
-            except Exception:
-                pass
+        init_t=triangle(init_p1,init_p2,init_p3,
+                        init_e1,init_e2,init_e3)
+        init_t.index=0
+        init_t.update_network()
+        self.T=[init_t]
         
-        #Dealing with the triangles...
-        for t in self.E[edge_index].triangles:
-            for nt in self.T[t.index].neighbors:
-                try:
-                    nt.neighbors.remove(self.T[t.index])
-                except Exception:
-                    pass
-            for e in self.T[t.index].edges:
-                if not self.E[edge_index].is_edge(e):
-                    try:
-                        e.triangles.remove(self.T[t.index])
-                    except Exception:
-                        pass
-            for p in self.T[t.index].points:
-                try:
-                    p.triangles.remove(self.T[t.index])
-                except Exception:
-                    pass
-            try:
-                t_index=t.index
-                del self.T[t_index]
-                for i in range(t_index,len(self.T)):
-                    self.T[i].index-=1
-            except Exception:
-                pass
+        #Iteratively calls upon the insert_Vertex_Delaunay method
+        for i in range(min(len(X),len(Y))):
+            self.insert_Vertex_Delaunay(point(X[i],Y[i],0))
         
-        #Dealing with the edge itself...
-        try:
-            del self.E[edge_index]
-            for i in range(edge_index,len(self.E)):
-                self.E[i].index-=1
-        except Exception:
-            pass
+        #Removes the initial triangle and performs any additional clean up
+        self.delete_point(init_p1)
+        self.delete_point(init_p2)
+        self.delete_point(init_p3)
         
-    def delete_triangle(self,tri_index):
-        #This method deletes a given triangle. Care is taken to also update
-        #the global data structure.
-        #Dealing with the neighboring triangles...
-        for nt in self.T[tri_index].neighbors:
-            try:
-                nt.neighbors.remove(self.T[tri_index])
-            except Exception:
-                pass
-        #Dealing with the edges...
-        for e in self.T[tri_index].edges:
-            try:
-                e.triangles.remove(self.T[tri_index])
-            except Exception:
-                pass
-        #Dealing with the points...
-        for p in self.T[tri_index].points:
-            try:
-                p.triangles.remove(self.T[tri_index])
-            except Exception:
-                pass
-        #Dealing with the triangle itself...
-        try:
-            del self.T[tri_index]
-            for i in range(tri_index,len(self.T)):
-                self.T[i].index-=1
-        except Exception:
-            pass
-    
-    def triangle_search(self,p,start_triangle=None,errtol=1e-3):
+        for e in self.E:
+            if len(e.triangles)<2:
+                e.enclosed=False
+
+    def triangle_search(self,p,start_triangle=None,errtol=1e-6):
         #This method searches for the triangle that emcompasses a given point.
         #This method assumes that this point is in at least one triangle of our
         #triangular mesh.
@@ -161,51 +77,56 @@ class triangle_mesh(object):
         if len(self.T)>0:
             #The method starts with a randomly chosen triangle in the mesh... 
             if start_triangle is None:
-                t_index=np.random.randint(len(self.T))
+                current_t=self.T[np.random.randint(len(self.T))]
             else:
                 try:
-                    t_index=start_triangle.index
+                    current_t=start_triangle
                 except Exception:
-                    t_index=np.random.randint(len(self.T))
-            prev_t_index=t_index
+                    current_t=self.T[np.random.randint(len(self.T))]
+            prev_t=self.T[current_t.index]
             #...and checks if that triangle encompasses the given point.
-            found_bool=self.T[t_index].point_triangle_intersect(p)
+            found_bool=current_t.point_triangle_intersect(p)
             counter=0
             while not found_bool and counter<len(self.T):
-                #If the current triangle does not encompass the given point...
-                nt_index=-1
-                bar=-np.inf
-                #...it searches through all the neighbors
-                #of the current triangle...
-                for nt in self.T[t_index].neighbors:
-                    for e in nt.edges:
-                        if e in self.T[t_index].edges:
-                            #...and checks which of the neighboring triangles
-                            #is pointing the most towards the given point
-                            #through the use of cross products.
-                            #Loops are avoided by remembering which triangle
-                            #was visited last.
-                            dir_match=edge(p,e.points[0]).cross(e)
-                            dir_match*=np.sign(edge(nt.average(),e.points[0]).cross(e))
-                            if nt.index!=prev_t_index:
-                                if dir_match > bar+errtol:
-                                    nt_index=nt.index
-                                    bar=dir_match
-                                elif dir_match >= bar-errtol and np.random.rand()<0.5:
-                                    nt_index=nt.index
-                                    bar=dir_match
-                            break
+                #If the current triangle does not encompass the given point,
+                #it searches through all the neighbors of the current triangle...
+                next_t=None
+                for i in range(3):
+                    if edge(current_t.average(),p).point_edge_intersect(current_t.points[i]):
+                        if current_t.neighbors[(i+1)%3] is not None and not current_t.neighbors[(i+1)%3].is_triangle(prev_t):
+                            if current_t.neighbors[(i+2)%3] is not None and not current_t.neighbors[(i+2)%3].is_triangle(prev_t):
+                                if np.random.rand()<0.5:
+                                    next_t=current_t.neighbors[(i+1)%3]
+                                else:
+                                    next_t=current_t.neighbors[(i+2)%3]
+                            else:
+                                next_t=current_t.neighbors[(i+1)%3]
+                        else:
+                            if current_t.neighbors[(i+2)%3] is not None and not current_t.neighbors[(i+2)%3].is_triangle(prev_t):
+                                next_t=current_t.neighbors[(i+2)%3]
+                if next_t is None:
+                    for i in range(3):
+                        if current_t.neighbors[i] is not None:
+                            if current_t.edges[i].edge_edge_intersect(edge(current_t.average(),p)):
+                                if not current_t.neighbors[i].is_triangle(prev_t):
+                                    next_t=current_t.neighbors[i]
+                                    break
                 #The method then moves to the best neighboring triangle and
                 #checks again if that triangle encompasses the given point,
                 #repeating the cycle.
-                prev_t_index=t_index
-                t_index=nt_index
-                found_bool=self.T[t_index].point_triangle_intersect(p)
+                if next_t is None:
+                    temp=prev_t
+                    prev_t=current_t
+                    current_t=temp
+                else:
+                    prev_t=current_t
+                    current_t=next_t
+                found_bool=current_t.point_triangle_intersect(p)
                 counter+=1
             if found_bool:
-                return self.T[t_index]
+                return current_t
         return None
-    
+
     def insert_Vertex_Delaunay(self,p,return_changed_triangles=False):
         #This method inserts a point into a triangular mesh which is assumed
         #to fulfil the Delaunay requisite already. The point is then added
@@ -214,168 +135,124 @@ class triangle_mesh(object):
         if all([not pointVar.is_point(p) for pointVar in self.P]):
             p.index=len(self.P)
             self.P.append(p)
-            poly_edges=[]
-            star_edges=[]
             
-            #First, the method searches for the triangles that need to
-            #be changed. It first looks for the triangle that contains
+            #First, the method first looks for the triangle that contains
             #the point that is about to be inserted using an efficient
-            #(hopefully O(log(N)) runtime) search algorithm. Then it performs
-            #a breadth-first search to find all the triangles whose circumcircle
-            #encompasses the given point.
-            #bad_triangles=[t for t in self.T if t.inCircumcircle(p)]
+            #(hopefully O(log(N)) runtime) search algorithm. It then sets up
+            #a beginning hole, surrounded by a front of appropriate triangles
             triangle_zero=self.triangle_search(p)
+            poly_edges=[]
+            constraint=None
+            for e in triangle_zero.edges:
+                if not e.point_edge_intersect(p):
+                    poly_edges.append(e)
+                else:
+                    if e.constraint:
+                        constraint=e
+                    if len(e.triangles)>1:
+                        poly_edges.append(e)
             bad_triangles=[triangle_zero]
-            search_triangles=[triangle_zero]
+            self.delete_triangle(triangle_zero)
             search_bool=True
+            
+            #Here the method performs a breadth-first search that expands
+            #the polygonal hole by... 
             while search_bool:
                 search_bool=False
-                for i in range(len(search_triangles)-1,-1,-1):
-                    for nt in search_triangles[i].neighbors:
-                        if (all([not nt.is_triangle(elem) for elem in bad_triangles])
-                            and nt.inCircumcircle(p)):
-                            search_triangles.append(nt)
-                            bad_triangles.append(nt)
+                #...investigating any triangles along the surface of
+                #the polygonal hole...
+                for i in range(len(poly_edges)-1,-1,-1):
+                    #...and seeing if the edge of interest is worth investigating.
+                    constraint_bool=poly_edges[i].constraint
+                    constraint_intersect_bool=(constraint_bool
+                                               and poly_edges[i].point_edge_intersect(p))
+                    if not constraint_bool or constraint_intersect_bool:    
+                        #The method then analyzes the triangle
+                        #attached to the edge in question and sees if it fails
+                        #the Delaunay condition...
+                        if (len(poly_edges[i].triangles)>0
+                            and poly_edges[i].triangles[0].inCircumsphere(p)):
+                            delete_poly_e_indices=[]
+                            #...and if so, destroys the triangle and
+                            #appropriately expands the polygonal hole...
+                            for e in poly_edges[i].triangles[0].edges:
+                                match_bool=False
+                                for j in range(len(poly_edges)):
+                                    if e.is_edge(poly_edges[j]):
+                                        match_bool=True
+                                        delete_poly_e_indices.append(j)
+                                if not match_bool:
+                                    poly_edges.append(e)
+                            #...while keeping track of any constraints that
+                            #the to-be-inserted points intersects.
+                            if constraint_intersect_bool:
+                                constraint=poly_edges[i]    
+                            #Just some book-keeping...
+                            bad_triangles.append(poly_edges[i].triangles[0])
+                            self.delete_edge(poly_edges[i])
                             search_bool=True
-                    search_triangles=search_triangles[:i]+search_triangles[i+1:]
+                            #And finally the method deletes any of the old
+                            #infrastructure of the polygonal hole
+                            for index in sorted(delete_poly_e_indices,reverse=True):
+                                del poly_edges[index]
+                            if len(delete_poly_e_indices)>1:
+                                break
 
-            #From there, the bad triangles are removed from the mesh and their
-            #edges are added to the polygonal hole that needs to be
-            #retriangulated
-            for i in range(len(bad_triangles)-1,-1,-1):
-                for v in bad_triangles[i].points:
-                    star_e=edge(p,v)
-                    if all([not star_e.is_edge(elem) for elem in star_edges]):
-                        star_edges.append(star_e)
-                for e in bad_triangles[i].edges:
-                    if all([not e.is_edge(elem) for elem in poly_edges]):
-                        poly_edges.append(e)
-                self.delete_triangle(bad_triangles[i].index)
-            
-            #The polygonal hole is cleaned to remove any edges from the interior
-            #of the hole
-            for star_e in star_edges:
-                restart=True
-                while restart:
-                    restart=False
-                    for i,poly_e in enumerate(poly_edges):
-                        if poly_e.edge_edge_intersect(star_e,includeboundary=False):
-                            del poly_edges[i]
-                            self.delete_edge(poly_e.index)
-                            restart=True
-                            break
-            
             #The polygonal hole is retriangulated, using the edges of the
             #polygonal hole as a backbone. Care is taken to not include any
             #edges twice. All new edges and triangles are then also networked
             #into the mesh to conserve the global data structure.
-            star_edges.clear()
+            star_edges=[]
             good_triangles=[]
-            for e in poly_edges:
-                e1=edge(e.points[0],p)
-                match_bool=False
-                for elem in star_edges:
-                    if e1.is_edge(elem):
-                        e1=elem
-                        match_bool=True
+            for poly_e in poly_edges:
+                e1=edge(poly_e.points[0],p)
+                e2=edge(poly_e.points[1],p)
+                match_e1_bool=False
+                match_e2_bool=False
+                for star_e in star_edges:
+                    if not match_e1_bool and e1.is_edge(star_e):
+                        e1=star_e
+                        match_e1_bool=True
+                    elif not match_e2_bool and e2.is_edge(star_e):
+                        e2=star_e
+                        match_e2_bool=True
+                    if match_e1_bool and match_e2_bool:
                         break
-                if not match_bool:
+                if not match_e1_bool:
                     e1.index=len(self.E)
-                    e1.update()
+                    e1.update_network()
                     self.E.append(e1)
                     star_edges.append(e1)
-                
-                e2=edge(e.points[1],p)
-                match_bool=False
-                for elem in star_edges:
-                    if e2.is_edge(elem):
-                        e2=elem
-                        match_bool=True
-                        break
-                if not match_bool:
+                    #A quick check to transfer any constraint attributes
+                    #to any newly constructed edges
+                    if constraint is not None:
+                        if constraint.point_edge_intersect(poly_e.points[0]):
+                            e1.constraint=True
+                if not match_e2_bool:
                     e2.index=len(self.E)
-                    e2.update()
+                    e2.update_network()
                     self.E.append(e2)
                     star_edges.append(e2)
-                
-                t=triangle(e.points[0],e.points[1],p,e,e1,e2)
-                t.update()
-                t.index=len(self.T)
-                self.T.append(t)
-                good_triangles.append(t)
+                    #A quick check to transfer any constraint attributes
+                    #to any newly constructed edges
+                    if constraint is not None:
+                        if constraint.point_edge_intersect(poly_e.points[1]):
+                            e2.constraint=True
+                t1=triangle(poly_e.points[0],poly_e.points[1],p,poly_e,e1,e2)
+                t1.update_network()
+                t1.index=len(self.T)
+                self.T.append(t1)
+                good_triangles.append(t1)
             
+            #A quick wrap-up to enclose any edges
             for good_t in good_triangles:
                 for good_e in good_t.edges:
-                    if len(good_e.triangles)==1:
-                        good_e.enclosed=False
-                    elif len(good_e.triangles)>1:
-                        good_e.enclosed=True
-            
+                    good_e.enclosed=(len(good_e.triangles)>1)
+                    
             if return_changed_triangles:
                 return good_triangles,bad_triangles
         elif return_changed_triangles:
             return [],[]
-        
-    def triangulate(self,P,constraints=[]):    
-        #This method performs the Bowyer-Watson triangle mesh generation
-        #from a given set of points P. It first sets up a beginner triangle
-        #that encompasses all points, and then iteratively adds all points one
-        #by one, retriangulating locally as it goes.
-        
-        #Set up of initial triangle that encompasses all the points
-        maxX=max(P,key=lambda p:p.x).x
-        minX=min(P,key=lambda p:p.x).x
-        maxY=max(P,key=lambda p:p.y).y
-        minY=min(P,key=lambda p:p.y).y
-        cx,cy=(maxX+minX)/2,(maxY+minY)/2
-        r=np.sqrt((maxX-minX)**2+(maxY-minY)**2)/2+1
-        init_p1=point(cx,cy+2*r)
-        init_p1.index=0
-        init_p2=point(cx+np.sqrt(3)*r,cy-r)
-        init_p2.index=1
-        init_p3=point(cx-np.sqrt(3)*r,cy-r)
-        init_p3.index=2
-        self.P.clear()
-        self.P.append(init_p1)
-        self.P.append(init_p2)
-        self.P.append(init_p3)
-        
-        init_e1=edge(init_p1,init_p2)
-        init_e1.index=0
-        init_e1.update()
-        self.E.append(init_e1)
-        init_e2=edge(init_p1,init_p3)
-        init_e2.index=1
-        init_e2.update()
-        self.E.append(init_e2)
-        init_e3=edge(init_p2,init_p3)
-        init_e3.index=2
-        init_e3.update()
-        self.E.append(init_e3)
-        
-        init_t=triangle(init_p1,init_p2,init_p3,init_e1,init_e2,init_e3)
-        init_t.index=0
-        init_t.update()
-        self.T=[init_t]
-        
-        #Iteratively calls upon the insert_Vertex_Delaunay method
-        for p in P:
-            if isinstance(p,point):
-                self.insert_Vertex_Delaunay(p)
-        
-        #Adds any constraints to the mesh
-        for c in constraints:
-            if isinstance(c,edge):
-                self.add_constraint(c)
-        
-        #Removes the initial triangle and performs any additional clean up
-        self.delete_point(2)
-        self.delete_point(1)
-        self.delete_point(0)
-        
-        for e in self.E:
-            if len(e.triangles)<2:
-                e.enclosed=False
 
     def flip(self,t1,t2):
         #This method flips two triangles in the mesh around if they touch via
@@ -407,13 +284,13 @@ class triangle_mesh(object):
             temp_e_index=diagonal.index
             temp_t1_index=t1.index
             temp_t2_index=t2.index
-            self.delete_edge(diagonal.index)
+            self.delete_edge(diagonal)
             
             #Constructs a new diagonal and inserts it into the global data
             #structure in the same place as the original
             cross_edge=edge(polygon_points[2],polygon_points[3])
             cross_edge.index=temp_e_index
-            cross_edge.update()
+            cross_edge.update_network()
             for e in self.E[temp_e_index:]:
                 e.index+=1
             self.E.insert(temp_e_index,cross_edge)
@@ -447,7 +324,7 @@ class triangle_mesh(object):
             cross_triangle_1=triangle(polygon_points[0],polygon_points[2],polygon_points[3],
                                       cross_triangle_edges[0],cross_triangle_edges[1],cross_triangle_edges[2])
             cross_triangle_1.index=temp_t1_index
-            cross_triangle_1.update()
+            cross_triangle_1.update_network()
             for t in self.T[temp_t1_index:]:
                 t.index+=1
             self.T.insert(temp_t1_index,cross_triangle_1)
@@ -472,7 +349,7 @@ class triangle_mesh(object):
             cross_triangle_2=triangle(polygon_points[1],polygon_points[2],polygon_points[3],
                                       cross_triangle_edges[0],cross_triangle_edges[1],cross_triangle_edges[2])
             cross_triangle_2.index=temp_t2_index
-            cross_triangle_2.update()
+            cross_triangle_2.update_network()
             for t in self.T[temp_t2_index:]:
                 t.index+=1
             self.T.insert(temp_t2_index,cross_triangle_2)
@@ -491,7 +368,9 @@ class triangle_mesh(object):
         while search_bool:
             search_bool=False
             for nt in search_tri.neighbors:
-                if not nt.is_triangle(prev_tri) and any([constraint.edge_edge_intersect(e,includeboundary=False) for e in nt.edges]):
+                if (nt is not None
+                    and not nt.is_triangle(prev_tri)
+                    and any([constraint.edge_edge_intersect(e,includeboundary=False) for e in nt.edges])):
                     prev_tri=search_tri
                     search_tri=nt
                     bad_triangles.append(search_tri)
@@ -510,6 +389,7 @@ class triangle_mesh(object):
         while len(bad_edges_index)>0:
             for i,index in reversed(list(enumerate(bad_edges_index))):
                 if constraint.is_edge(self.E[index]):
+                    self.E[bad_edges_index[i]].constraint=True
                     del bad_edges_index[i]
                 else:
                     p1=None
@@ -540,7 +420,7 @@ class triangle_mesh(object):
                         if not self.E[index].point_edge_intersect(p):
                             p1=p
                             break
-                    if self.E[index].triangles[1].inCircumcircle(p1,includeboundary=False):
+                    if self.E[index].triangles[1].inCircumsphere(p1,includeboundary=False):
                         delaunay_bool=False
                         done_bool=False
                     if delaunay_bool:
@@ -549,7 +429,7 @@ class triangle_mesh(object):
                             if not self.E[index].point_edge_intersect(p):
                                 p2=p
                                 break
-                        if self.E[index].triangles[0].inCircumcircle(p2,includeboundary=False):
+                        if self.E[index].triangles[0].inCircumsphere(p2,includeboundary=False):
                             delaunay_bool=False
                             done_bool=False
                     if not delaunay_bool:
@@ -558,6 +438,8 @@ class triangle_mesh(object):
                             if any([self.E[index].triangles[1].is_triangle(nt) for nt in e.triangles]):
                                 delaunay_edges_index[i]=e.index
                                 break
+                else:
+                    self.E[index].constraint=True
                             
     def constrain_triangulation(self,constraints):
         #This method prepares the triangle mesh for the addition of constraints
@@ -580,9 +462,9 @@ class triangle_mesh(object):
     def refine(self,min_angle=20,max_area=1.0,min_length=0.5,errtol=1e-6):
         #This method implements Ruppert's refinement algorithm. It's goal is to
         #retriangulates the mesh so that it looks cleaner. It will prioritize
-        #bad edges (edges whose circumcircle contains a non-end-point), splitting
+        #bad edges (edges whose circumsphere contains a non-end-point), splitting
         #them in half (repeatedly if necessary). It then cleans up the triangles,
-        #inserting the circumcircles of bad triangles unless it causes another
+        #inserting the circumspheres of bad triangles unless it causes another
         #edge to be encroached. 
         
         #Cleans up the inputted parameters of the method
@@ -597,7 +479,9 @@ class triangle_mesh(object):
             encroached_bool=False
             for t in e.triangles:
                 for p in t.points:
-                    if not e.point_edge_intersect(p) and e.inCircumcircle(p) and e.length()>min_length:
+                    if (not e.point_edge_intersect(p)
+                        and e.inCircumsphere(p)
+                        and e.length()>min_length):
                         encroached_bool=True
                         encroached_edges.append(e)
                         break
@@ -621,11 +505,11 @@ class triangle_mesh(object):
                 inserted_triangles,deleted_triangles=self.insert_Vertex_Delaunay(inserted_point,return_changed_triangles=True)
                 del encroached_edges[0]
                 update_bool=True
-            #...or otherwise inserts the circumcircle of a bad triangle into
+            #...or otherwise inserts the circumsphere of a bad triangle into
             #the triangulation, so long as it doesn't fall outside of the
             #triangulation already present.
             else:
-                inserted_point=bad_triangles[0].circumcircle().center
+                inserted_point=bad_triangles[0].circumsphere().center
                 if self.triangle_search(inserted_point,start_triangle=bad_triangles[0]) is not None:
                     inserted_triangles,deleted_triangles=self.insert_Vertex_Delaunay(inserted_point,return_changed_triangles=True)
                     update_bool=True
@@ -652,7 +536,7 @@ class triangle_mesh(object):
                             encroached_bool=False
                             for t in good_e.triangles:
                                 for p in t.points:
-                                    if not good_e.point_edge_intersect(p) and good_e.inCircumcircle(p):
+                                    if not good_e.point_edge_intersect(p) and good_e.inCircumsphere(p):
                                         encroached_bool=True
                                         encroached_edges.append(good_e)
                                         break
@@ -660,7 +544,88 @@ class triangle_mesh(object):
                                 break
                     if good_t.area()>max_area or any([elem<min_angle for elem in good_t.angles()]):
                         bad_triangles.append(good_t)
-                
+
+    def delete_point(self,p):
+        #This method deletes a given point and in doing so deletes any edges or
+        #triangles that are attached. Care is taken to also update the global
+        #data structure.
+        
+        #Deleting the attached triangles...
+        for i in range(len(p.triangles)-1,-1,-1):
+            self.delete_triangle(p.triangles[i])
+
+        #Deleting the attached edges...
+        for i in range(len(p.edges)-1,-1,-1):
+            self.delete_edge(p.edges[i])
+
+        #Dealing with the point itself...
+        for n in p.neighbors:
+            for i in range(len(n.neighbors)-1,-1,-1):
+                if n.neighbors[i].is_point(p):
+                    del n.neighbors[i]
+        for i in range(p.index+1,len(self.P)):
+            self.P[i].index-=1
+        del self.P[p.index]
+        #self.P=self.P[:p.index]+self.P[p.index+1:]
+        #del p
+        
+    def delete_edge(self,e):
+        #This method deletes a given edge and in doing so deletes any triangles
+        #that are attached. Care is taken to also update the global
+        #data structure.
+        
+        #Deleting the attached triangles...
+        for i in range(len(e.triangles)-1,-1,-1):
+            self.delete_triangle(e.triangles[i])
+
+        #Dealing with the points...
+        for p in e.points:
+            for i in range(len(p.edges)-1,-1,-1):
+                if p.edges[i].is_edge(e):
+                    del p.edges[i]
+        for i in range(len(e.points[0].neighbors)-1,-1,-1):
+            if e.points[0].neighbors[i].is_point(e.points[1]):
+                del e.points[0].neighbors[i]
+        for i in range(len(e.points[1].neighbors)-1,-1,-1):
+            if e.points[1].neighbors[i].is_point(e.points[0]):
+                del e.points[1].neighbors[i]
+        
+        #Dealing with the edge itself...
+        for i in range(e.index+1,len(self.E)):
+            self.E[i].index-=1
+        del self.E[e.index]
+        #self.E=self.E[:e.index]+self.E[e.index+1:]
+        #del e
+        
+    def delete_triangle(self,t):
+        #This method deletes a given triangle. Care is taken to also update
+        #the global data structure.
+        
+        #Dealing with the points...
+        for p in t.points:
+            for i in range(len(p.triangles)-1,-1,-1):
+                if p.triangles[i].is_triangle(t):
+                    del p.triangles[i]
+        
+        #Dealing with the edges...
+        for e in t.edges:
+            for i in range(len(e.triangles)-1,-1,-1):
+                if e.triangles[i].is_triangle(t):
+                    del e.triangles[i]
+        
+        #Dealing with the triangle itself...
+        for n in t.neighbors:
+            if n is not None:
+                for i in range(len(n.neighbors)-1,-1,-1):
+                    if n.neighbors[i] is not None:
+                        if n.neighbors[i].is_triangle(t):
+                            n.neighbors[i]=None
+        for i in range(t.index+1,len(self.T)):
+            self.T[i].index-=1
+        del self.T[t.index]
+        #self.T=self.T[:t.index]+self.T[t.index+1:]
+        #del t
+    
     def __repr__(self):
         #This method returns a string representation of the triangle mesh.
         string_rep="Number of Triangles: "+str(len(self.T))+"\n"
@@ -683,15 +648,20 @@ class triangle_mesh(object):
         plotshowbool=False
         if plotaxis is None:
             if show_values:
-                plotaxis=Axes3D(plt.figure(figsize=(graphsize,graphsize)))
+                plotaxis=plt.figure(figsize=(graphsize,graphsize)).add_subplot(111,projection="3d")
                 plotaxis.xaxis.set_rotate_label(False)
                 plotaxis.yaxis.set_rotate_label(False)
                 plotaxis.zaxis.set_rotate_label(False)
-                plotaxis.set_zlabel("$\\mathbf{Z}$",fontsize=16,rotation=0)
+                plotaxis.set_zlabel("$\\mathbf{Value}$",fontsize=16,rotation=0)
                 plotaxis.zaxis.set_tick_params(labelsize=16)
+                plotaxis.set_xlim([min(self.P,key=lambda p:p.x).x-1,max(self.P,key=lambda p:p.x).x+1])
+                plotaxis.set_ylim([min(self.P,key=lambda p:p.y).y-1,max(self.P,key=lambda p:p.y).y+1])
+                plotaxis.set_zlim([min(self.P,key=lambda p:p.value).value-1,max(self.P,key=lambda p:p.value).value+1])
             else:
                 plotfig=plt.figure(figsize=(graphsize,graphsize))
                 plotaxis=plotfig.add_subplot(111)
+                plotaxis.set_xlim([min(self.P,key=lambda p:p.x).x-1,max(self.P,key=lambda p:p.x).x+1])
+                plotaxis.set_ylim([min(self.P,key=lambda p:p.y).y-1,max(self.P,key=lambda p:p.y).y+1])
             plotaxis.set_title("Triangulation",fontdict=font)
             plotaxis.set_xlabel("$\\mathbf{X}$",fontsize=16,rotation=0)
             plotaxis.set_ylabel("$\\mathbf{Y}$",fontsize=16,rotation=0)
@@ -731,10 +701,9 @@ class triangle_mesh(object):
             else:
                 edge_color=color
             if show_values:
-                plotaxis.add_collection3d(art3d.Poly3DCollection([((t.points[0].x,t.points[0].y,t.points[0].value),
-                                                                   (t.points[1].x,t.points[1].y,t.points[1].value),
-                                                                   (t.points[2].x,t.points[2].y,t.points[2].value)) for t in self.T],
-                                                                 facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
+                plotaxis.add_collection3d(Poly3DCollection([[[t.points[i].x,t.points[i].y,t.points[i].value]
+                                                            for i in range(3)] for t in self.T],
+                                                            facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
             else:
                 for t in self.T:
                     plotaxis.add_patch(plt.Polygon([[p.x,p.y] for p in t.points],facecolor=face_color,edgecolor=edge_color,alpha=alpha,zorder=0))
@@ -751,7 +720,7 @@ class triangle_mesh(object):
                         plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],linewidth=4,color=color,alpha=alpha,zorder=0)
                     else:
                         plotaxis.plot([p.x for p in e.points],[p.y for p in e.points],color=color,alpha=alpha,zorder=0)
-    
+
         if show_points:
             if show_values:
                 if show_triangles:
@@ -763,6 +732,6 @@ class triangle_mesh(object):
                     plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color_alt,alpha=alpha,zorder=1)
                 else:
                     plotaxis.scatter([p.x for p in self.P],[p.y for p in self.P],facecolor=color,edgecolor=color,alpha=alpha,zorder=1)
-        
+
         if plotshowbool:
             plt.show()
