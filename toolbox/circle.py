@@ -16,31 +16,10 @@ class circle(object):
     
     def inCircle(self,p,includeboundary=True,errtol=1e-12):
         #This method checks if an inputted point is in the circle or not.
-        """
-        p1=point(self.radius+self.center.x,self.center.y)
-        p2=point(self.radius-self.center.x,self.center.y)
-        p3=point(self.center.x,self.radius+self.center.y)
-        if (p2.x-p1.x)*(p3.y-p2.y)-(p2.y-p1.y)*(p3.x-p2.x)>0:
-            res=det([[p1.x-p.x,p2.x-p.x,p3.x-p.x],
-                     [p1.y-p.y,p2.y-p.y,p3.y-p.y],
-                     [(p1.x-p.x)**2+(p1.y-p.y)**2,
-                      (p2.x-p.x)**2+(p2.y-p.y)**2,
-                      (p3.x-p.x)**2+(p3.y-p.y)**2]])
-        else:
-            res=det([[p1.x-p.x,p3.x-p.x,p2.x-p.x],
-                     [p1.y-p.y,p3.y-p.y,p2.y-p.y],
-                     [(p1.x-p.x)**2+(p1.y-p.y)**2,
-                      (p3.x-p.x)**2+(p3.y-p.y)**2,
-                      (p2.x-p.x)**2+(p2.y-p.y)**2]])
         if includeboundary:
-            return res>=-abs(errtol)
-        else:
-            return res>abs(errtol)
-        """
-        if includeboundary and (p.x-self.center.x)**2+(p.y-self.center.y)**2<=(self.radius+abs(errtol))**2:
-            return True
-        elif not includeboundary and (p.x-self.center.x)**2+(p.y-self.center.y)**2<max(self.radius-abs(errtol),0)**2:
-            return True
+            return p.distance(self.center)<=self.radius+abs(errtol)
+        elif not includeboundary:
+            return p.distance(self.center)<self.radius-abs(errtol)
         return False
 
     def __repr__(self):
