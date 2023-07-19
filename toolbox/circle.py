@@ -18,9 +18,8 @@ class circle(object):
         #This method checks if an inputted point is in the circle or not.
         if includeboundary:
             return p.distance(self.center)<=self.radius+abs(errtol)
-        elif not includeboundary:
+        else:
             return p.distance(self.center)<self.radius-abs(errtol)
-        return False
 
     def __repr__(self):
         #This method returns a string representation of the circle object.
