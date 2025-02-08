@@ -1,0 +1,126 @@
+import numpy as np
+import random
+
+def kMeans(data,k,errtol=0,maxiter=100,inform=True):
+    N = len(data)
+    dim = len(data[0])
+    
+    for i in range(N):
+        data[i] = np.asarray(data[i])
+    
+    centroids = [random.choice(data) for i in range(k)]
+    deltaCentroids = [np.inf for i in range(k)]
+    wcss = np.zeros(dim)
+    weights = np.random.random(dim)
+    weights /= weights.sum()
+    counter = 0
+            
+    def distance(x,y):
+        return np.dot(weights,(x-y)**2)
+    
+    class Cluster(object):
+        def __init__(self,centroid):
+            self.data = []
+            self.centroid = centroid
+            self.left = None
+            self.right = None
+            self.level = 0
+        
+        def insert(self,data):
+            if data[self.level%dim] <= self.centroid[self.level%dim]:
+                if self.left is None:
+                    self.left = Cluster(data)
+                    self.left.level = self.level + 1
+                else:
+                    self.left.insert(data)
+            else:
+                if self.right is None:
+                    self.right = Cluster(data)
+                    self.right.level = self.level + 1
+                else:
+                    self.right.insert(data)
+        
+        def nearestNeighbor(self,data):
+            if data[self.level%dim] <= self.centroid[self.level%dim]:
+                nextNode = self.left
+                otherNode = self.right
+            else:
+                nextNode = self.right
+                otherNode = self.left
+    
+            if nextNode is not None:
+                best = nextNode.nearestNeighbor(data)
+                bestDist = distance(best.centroid,data)
+                optionalDist = distance(self.centroid,data)
+                if optionalDist < bestDist:
+                    best = self
+                    bestDist = optionalDist
+            else:
+                best = self
+                bestDist = distance(self.centroid,data)
+    
+            if otherNode is not None and bestDist >= (data[self.level%dim]-self.centroid[self.level%dim])**2:
+                optional = otherNode.nearestNeighbor(data)
+                optionalDist = distance(optional.centroid,data)
+                if optionalDist < bestDist:
+                    best = optional
+            
+            return best
+    
+        def recenter(self,wcss):
+            try:
+                newCentroid = np.average(self.data,axis=0)
+            except Exception:
+                newCentroid = random.choice(data)        
+            centroids.append(newCentroid)
+            deltaCentroids.append(distance(newCentroid,self.centroid))
+            wcss += np.sum([(value - newCentroid)**2 for value in self.data],axis = 0)
+            
+            if self.left is not None:
+                self.left.recenter(wcss)
+            if self.right is not None:
+                self.right.recenter(wcss)
+        
+        def information(self):
+            print("Cluster Information")
+            print("Centroid: %s"%self.centroid)
+            print("Number of data points: %i (%0.1f percent of total)"%(len(self.data),100*len(self.data)/N))
+            print("Covariance:\n%s"%np.cov(self.data,rowvar = False))
+            print()
+            
+            if self.left is not None:
+                self.left.information()
+            if self.right is not None:
+                self.right.information()
+        
+    while any([delta > errtol for delta in deltaCentroids]) and counter < maxiter:
+        random.shuffle(centroids)
+        clusterTree = Cluster(centroids[0])
+        for i in range(1,k):
+            clusterTree.insert(centroids[i])
+        centroids = []
+        deltaCentroids = []
+        wcss = np.zeros(dim)
+        
+        for i in range(N):
+            clusterTree.nearestNeighbor(data[i]).data.append(data[i])
+        clusterTree.recenter(wcss)
+        
+        wcssTotal = sum(wcss)
+        for i in range(dim):
+            weights[i] = wcss[i]/wcssTotal
+        
+        counter += 1
+    
+    if inform:
+        bcss = np.sum([[distance(centroid1,centroid2) for centroid2 in centroids] for centroid1 in centroids])
+        if counter >= maxiter:
+            print("Attention: program has reached its maximum number of iterations. Clustering may be inaccurate")
+        print("Clustering's Within-Cluster Sum of Squares metric: %0.3f"%wcssTotal)
+        print("Clustering's Between-Cluster Sum of Squares metric: %0.3f"%bcss)
+        print("Clustering's Calinski-Harabasz Score: %0.3f"%((bcss*(N-k))/(wcssTotal*(k-1))))
+        print()
+        clusterTree.information()
+        print("Feature weights: %s"%weights)
+
+    return centroids
