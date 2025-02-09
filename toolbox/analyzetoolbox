@@ -2,6 +2,14 @@ import numpy as np
 import random
 
 def kMeans(data,k,errtol=0,maxiter=100,inform=True):
+    #This method clusters data into k clusters using a k-Means Algorithm:
+    #<k> determines the number of clusters generated
+    #<errtol> determines the minimum change of distance the centroids can
+    #undergo before the algorithm is forced to terminates 
+    #<maxiter> determines the maximum amount of iterations before the algorithm
+    #is forced to terminate.
+        
+    #Set up
     N = len(data)
     dim = len(data[0])
     
@@ -14,10 +22,12 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
     weights = np.random.random(dim)
     weights /= weights.sum()
     counter = 0
-            
+    
+    #Distance auxiliary function
     def distance(x,y):
         return np.dot(weights,(x-y)**2)
     
+    #Custom kdTree data structure, with attached cluster data
     class Cluster(object):
         def __init__(self,centroid):
             self.data = []
@@ -26,6 +36,7 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
             self.right = None
             self.level = 0
         
+        #Builds the tree from the root
         def insert(self,data):
             if data[self.level%dim] <= self.centroid[self.level%dim]:
                 if self.left is None:
@@ -40,6 +51,7 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
                 else:
                     self.right.insert(data)
         
+        #Finds the nearest centroid for the inputted data
         def nearestNeighbor(self,data):
             if data[self.level%dim] <= self.centroid[self.level%dim]:
                 nextNode = self.left
@@ -66,7 +78,9 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
                     best = optional
             
             return best
-    
+
+        #After all the data has been resorted, new centroids are computed
+        #and WCSS is computed element-wise
         def recenter(self,wcss):
             try:
                 newCentroid = np.average(self.data,axis=0)
@@ -81,6 +95,7 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
             if self.right is not None:
                 self.right.recenter(wcss)
         
+        #Displays the information about a cluster
         def information(self):
             print("Cluster Information")
             print("Centroid: %s"%self.centroid)
@@ -94,6 +109,7 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
                 self.right.information()
         
     while any([delta > errtol for delta in deltaCentroids]) and counter < maxiter:
+        #Reclusters all the data
         random.shuffle(centroids)
         clusterTree = Cluster(centroids[0])
         for i in range(1,k):
@@ -102,16 +118,19 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
         deltaCentroids = []
         wcss = np.zeros(dim)
         
+        #Recalculates all the centroids
         for i in range(N):
             clusterTree.nearestNeighbor(data[i]).data.append(data[i])
         clusterTree.recenter(wcss)
         
+        #Recalculates all the weights
         wcssTotal = sum(wcss)
         for i in range(dim):
             weights[i] = wcss[i]/wcssTotal
         
         counter += 1
     
+    #Displays the information about all the clusters
     if inform:
         bcss = np.sum([[distance(centroid1,centroid2) for centroid2 in centroids] for centroid1 in centroids])
         if counter >= maxiter:
@@ -119,8 +138,8 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
         print("Clustering's Within-Cluster Sum of Squares metric: %0.3f"%wcssTotal)
         print("Clustering's Between-Cluster Sum of Squares metric: %0.3f"%bcss)
         print("Clustering's Calinski-Harabasz Score: %0.3f"%((bcss*(N-k))/(wcssTotal*(k-1))))
+        print("Feature weights: %s"%weights)
         print()
         clusterTree.information()
-        print("Feature weights: %s"%weights)
 
     return centroids
