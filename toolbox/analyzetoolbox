@@ -1,5 +1,422 @@
 import numpy as np
 import random
+import toolbox.structuretoolbox as stb
+import toolbox.matrixtoolbox as mtb
+import toolbox.optimizetoolbox as otb
+import scipy.stats as stats
+from scipy.special import loggamma
+
+def isContinuous(data,threshold = 0.25):
+    #This quick little method estimates whether a 1D dataset is
+    #continuous or discrete by checking how many unique values
+    #the dataset has and then compares that to how large the
+    #dataset itself is. If the ratio between the two is below
+    #a certain threshold, the method returns that the dataset
+    #is probalby not continuous
+    return len(np.unique(data)) > threshold*len(data)
+
+def selectSimpleDiscreteModel(data,zeroTol=1e-1):
+    modelNames = []
+    logLikelihoods = []
+    parameters = []
+    mean = np.average(data)
+    N = len(data)
+    minData = min(data)
+    maxData = max(data)
+
+    #Bernoulli Ditribution
+    if 0 <= mean <= 1: 
+        logLikelihoods.append(np.sum(stats.bernoulli.logpmf(data,mean)))
+        parameters.append(1)
+        modelNames.append("Bernoulli Distribution with p = %0.6f"%mean)
+    
+    #Binomial Distribution
+    try:
+        negativeLogPDF = lambda x: np.sum(loggamma(data+1)+loggamma(x[0]-data+1))-N*(loggamma(x[0]+1)+np.log(x[1]/(1-x[1]))*mean+x[0]*np.log(1-x[1]))
+        param = otb.nelder_mead(negativeLogPDF,[maxData,0.5])
+        param[0] = int(round(param[0]))
+        param[1] = mean/param[0]
+        if param[0] >= 0 and 0 <= param <= 1: 
+            logLikelihoods.append(np.sum(stats.binom.logpmf(data,param[0],param[1])))
+            parameters.append(2)
+            modelNames.append("Binomial Distribution with n = %i and p = %0.6f"%param)
+    except Exception:
+        pass
+    
+    #Geometric Distribution
+    if mean >= 0:
+        logLikelihoods.append(np.sum(stats.geom.logpmf(data,1/mean)))
+        parameters.append(1)
+        modelNames.append("Geometric Distribution with p = %0.6f"%(1/mean))
+    
+    #Negative Binomial Distribution FIX
+    try:
+        negativeLogPDF = lambda x: np.sum(loggamma(data+1)-loggamma(data+x[0]))-N*(x[0]*np.log(x[1])+np.log(1-x[1])*mean-loggamma(x[0]))
+        param = otb.nelder_mead(negativeLogPDF,[1,0.5])
+        param[0] = int(round(param[0]))
+        param[1] = param[0]/(mean+param[0])
+        if param[0] > 0 and 0 <= param[1] <= 1: 
+            logLikelihoods.append(np.sum(stats.nbinom.logpmf(data,param[0],param[1])))
+            parameters.append(2)
+            modelNames.append("Negative Binomial Distribution with n = %i and p = %0.6f"%param)
+    except Exception:
+        pass
+    
+    #Poisson Distribution
+    if mean > 0:
+        logLikelihoods.append(np.sum(stats.poisson.logpmf(data,mean)))
+        parameters.append(1)
+        modelNames.append("Poisson Distribution with lambda = %0.6f"%mean)
+    
+    #Discrete Uniform Distribution
+    logLikelihoods.append(-N*np.log(maxData-minData+1))
+    parameters.append(2)
+    modelNames.append("Discrete Uniform Distribution over [%0.6f, %0.6f]"%(minData,maxData))
+    
+    minModel = modelNames[0]
+    logN = np.log(N)
+    minScore = parameters[0]*logN-2*logLikelihoods[0]
+    for j in range(1,len(logLikelihoods)):
+        score = parameters[j]*logN - 2*logLikelihoods[j]
+        if score < minScore:
+            minModel = modelNames[j]
+            minScore = score
+        
+    print("The inputted data most likely follows a %s"%minModel)
+
+def selectSimpleContinuousModel(data,zeroTol=1e-1):
+    modelNames = []
+    logLikelihoods = []
+    parameters = []
+    N = len(data)
+    minData = min(data)
+    maxData = max(data)
+    
+    #Continuous Uniform Distribution
+    logLikelihoods.append(-N*np.log(maxData-minData))
+    parameters.append(2)
+    modelNames.append("Continuous Uniform Distribution over [%0.6f, %0.6f]"%(minData,maxData))
+    
+    #Exponential Distribution
+    param = stats.expon.fit(data)
+    if abs(param[0]) <= zeroTol:
+        logLikelihoods.append(np.sum(stats.expon.logpdf(data,scale=param[1])))
+        parameters.append(1)
+        modelNames.append("Exponential Distribution with lambda = %0.6f"%(1/param[1]))
+    else:
+        logLikelihoods.append(np.sum(stats.expon.logpdf(data,loc=param[0],scale=param[1])))
+        parameters.append(2)
+        modelNames.append("Exponential Distribution shifted over by %0.6f, with lambda = %0.6f"%(param[0],1/param[1]))
+    
+    #Gamma Distribution
+    param = stats.gamma.fit(data)
+    if abs(param[1]) <= zeroTol:
+        logLikelihoods.append(np.sum(stats.gamma.logpdf(data,param[0],scale=param[2])))
+        parameters.append(2)
+        modelNames.append("Gamma Distribution with alpha = %0.6f and theta = %0.6f"%(param[0],param[2]))
+    else:
+        logLikelihoods.append(np.sum(stats.gamma.logpdf(data,param[0],loc=param[1],scale=param[2])))
+        parameters.append(3)
+        modelNames.append("Gamma Distribution shifted over by %0.6f, with alpha = %0.6f and theta = %0.6f"%(param[1],param[0],param[2]))
+    
+    #Beta Distribution
+    param = stats.beta.fit(data)
+    if abs(param[2]) <= zeroTol:
+        if abs(1-param[3]) <= zeroTol:
+            logLikelihoods.append(np.sum(stats.beta.logpdf(data,param[0],param[1])))
+            parameters.append(2)
+            modelNames.append("Beta Distribution with alpha = %0.6f and beta = %0.6f"%(param[0],param[1]))
+        else:
+            logLikelihoods.append(np.sum(stats.beta.logpdf(data,param[0],param[1],scale=param[3])))
+            parameters.append(3)
+            modelNames.append("Beta Distribution rescaled by a factor of %0.6f, with alpha = %0.6f and beta = %0.6f"%(param[3],param[0],param[1]))
+    else:
+        if abs(1-param[3]) <= zeroTol:
+            logLikelihoods.append(np.sum(stats.beta.logpdf(data,param[0],param[1],loc=param[2])))
+            parameters.append(3)
+            modelNames.append("Beta Distribution shifted over by %0.6f, with alpha = %0.6f and beta = %0.6f"%(param[2],param[0],param[1]))
+        else:
+            logLikelihoods.append(np.sum(stats.beta.logpdf(data,param[0],param[1],loc=param[2],scale=param[3])))
+            parameters.append(4)
+            modelNames.append("Beta Distribution shifted over by %0.6f and rescaled by a factor of %0.6f, with alpha = %0.6f and beta = %0.6f"%(param[2],param[3],param[0],param[1]))
+    
+    #Normal Distribution
+    param = stats.norm.fit(data)
+    logLikelihoods.append(np.sum(stats.norm.logpdf(data,loc=param[0],scale=param[1])))
+    parameters.append(2)
+    modelNames.append("Normal Distribution with mu = %0.6f and sigma = %0.6f"%param)
+    
+    #Log Normal Distribution
+    param = stats.lognorm.fit(data)
+    if abs(param[1]) <= zeroTol:
+        logLikelihoods.append(np.sum(stats.lognorm.logpdf(data,param[0],scale=param[2])))
+        parameters.append(2)
+        modelNames.append("Log Normal Distribution with mu = %0.6f and sigma = %0.6f"%(np.log(param[0]),param[2]))
+    else:
+        logLikelihoods.append(np.sum(stats.lognorm.logpdf(data,param[0],loc=param[1],scale=param[2])))
+        parameters.append(3)
+        modelNames.append("Log Normal Distribution shifted over by %0.6f, with mu = %0.6f and sigma = %0.6f"%(param[1],np.log(param[0]),param[2]))
+    
+    #Skew Normal Distribution
+    param = stats.skewnorm.fit(data)
+    logLikelihoods.append(np.sum(stats.skewnorm.logpdf(data,param[0],loc=param[1],scale=param[2])))
+    parameters.append(3)
+    modelNames.append("Skew Normal Distribution with mu = %0.6f, sigma = %0.6f, and alpha = %0.6f"%(param[1],param[2],param[0]))
+    
+    #T-Distribution
+    param = stats.t.fit(data)
+    if abs(param[1]) <= zeroTol:
+        if abs(1-param[2]) <= zeroTol:
+            logLikelihoods.append(np.sum(stats.t.logpdf(data,param[0])))
+            parameters.append(1)
+            modelNames.append("Student T Distribution with upsilon = %0.6f"%param[0])
+        else:
+            logLikelihoods.append(np.sum(stats.t.logpdf(data,param[0],scale=param[2])))
+            parameters.append(2)
+            modelNames.append("Student T Distribution rescaled by a factor of %0.6f, with upsilon = %0.6f"%(param[2],param[0]))
+    else:
+        if abs(1-param[2]) <= zeroTol:
+            logLikelihoods.append(np.sum(stats.t.logpdf(data,param[0],loc=param[1])))
+            parameters.append(2)
+            modelNames.append("Student T Distribution shifted over by %0.6f, with upsilon = %0.6f"%(param[1],param[0]))
+        else:
+            logLikelihoods.append(np.sum(stats.t.logpdf(data,param[0],loc=param[1],scale=param[2])))
+            parameters.append(3)
+            modelNames.append("Student T Distribution shifted over by %0.6f and rescaled by a factor of %0.6f, with upsilon = %0.6f"%(param[1],param[2],param[0]))
+
+    #Cauchy Distribution
+    param = stats.cauchy.fit(data)
+    if abs(param[0]) <= zeroTol:
+        if abs(1-param[1]) <= zeroTol:
+            logLikelihoods.append(np.sum(stats.cauchy.logpdf(data)))
+            parameters.append(0)
+            modelNames.append("Cauchy Distribution")
+        else:
+            logLikelihoods.append(np.sum(stats.cauchy.logpdf(data,scale=param[1])))
+            parameters.append(1)
+            modelNames.append("Cauchy Distribution rescaled by a factor of %0.6f"%param[1])
+    else:
+        if abs(1-param[1]) <= zeroTol:
+            logLikelihoods.append(np.sum(stats.cauchy.logpdf(data,loc=param[0])))
+            parameters.append(1)
+            modelNames.append("Cauchy Distribution shifted over by %0.6f"%param[0])
+        else:
+            logLikelihoods.append(np.sum(stats.cauchy.logpdf(data,loc=param[0],scale=param[1])))
+            parameters.append(2)
+            modelNames.append("Cauchy Distribution shifted over by %0.6f and rescaled by a factor of %0.6f"%param)
+
+    bestModel = modelNames[0]
+    logN = np.log(N)
+    minScore = parameters[0]*logN-2*logLikelihoods[0]
+    for j in range(1,len(logLikelihoods)):
+        score = parameters[j]*logN - 2*logLikelihoods[j]
+        if score < minScore:
+            bestModel = modelNames[j]
+            minScore = score
+        
+    print("The inputted data most likely follows a %s"%bestModel)
+
+def selectMixedContinuousModel(data,maxIter=100,errTol=1e-3):
+    #This method runs the EM algorithm on any 1D data, trying
+    #to model each component using a Skewed Gaussian Model.
+    #The number of components is approximated automatically,
+    #the number of iterations EM can do is limited by the integer
+    #<maxIter>. EM should obviously be stopped earlier if
+    #parameter convergence is achieved, which is government by
+    #parameter <errTol>.
+    N = len(data)
+    dataCopy = np.asarray(sorted(data))
+    
+    #Notice the lack of initial parameter for determining
+    #number of components. Instead, the algorithm first
+    #calculates the k-nearest-neighbor distance of every point
+    #(which is done directly using an O(N) algorithm), where k is
+    #approximated to be so significant fraction of N.
+    minComponentSize = max(int(round(N/20)),3)
+    
+    #Notice the lack of initial parameter for determining
+    #number of components. Instead, the algorithm first
+    #approximates the original PDF using a KDE method, using
+    #a Gaussian kernel and Silverman's rule for the bandwidth
+    F = []
+    h = 0.9*min(np.std(dataCopy),3*(np.percentile(dataCopy,75)-np.percentile(dataCopy,25))/4)/pow(N,0.2)
+    fourH = 4*h
+    count = 0
+    for i in range(N):
+        f = [0]
+        index = i+1
+        while index < N-1 and dataCopy[index]-dataCopy[i] < fourH:
+            f.append(dataCopy[index]-dataCopy[i])
+            index += 1
+        index = i-1
+        while index > 0 and dataCopy[i]-dataCopy[index] < fourH:
+            f.append(dataCopy[i]-dataCopy[index])
+            index -= 1
+        count+=len(f)
+        F.append(np.sum(np.exp(-np.divide(f,h)**2/2)))
+    F = np.array(F)/(N*h)
+    
+    #Each set of 3 consecutive points has its associated set of
+    #probabilities. The algorithm calculates the unique parabola
+    #that goes through these probabilities. If the vertex of this
+    #parabola is a minimum and is found in the interval of the
+    #3 consecutive points, we assume that this marks the beginning
+    #of a new component, and so a component boundaries is made.
+    boundaries = [[dataCopy[0]-1]]
+    newBoundaryBool = False
+    for i in range(1,N-1):
+        a = F[i-1]/((dataCopy[i-1]-dataCopy[i])*(dataCopy[i-1]-dataCopy[i+1]))
+        a += F[i]/((dataCopy[i]-dataCopy[i-1])*(dataCopy[i]-dataCopy[i+1]))
+        a += F[i+1]/((dataCopy[i+1]-dataCopy[i-1])*(dataCopy[i+1]-dataCopy[i]))
+        if a > 1e-3:
+            b = -F[i-1]*(dataCopy[i]+dataCopy[i+1])/((dataCopy[i-1]-dataCopy[i])*(dataCopy[i-1]-dataCopy[i+1]))
+            b -= F[i]*(dataCopy[i-1]+dataCopy[i+1])/((dataCopy[i]-dataCopy[i-1])*(dataCopy[i]-dataCopy[i+1]))
+            b -= F[i+1]*(dataCopy[i-1]+dataCopy[i])/((dataCopy[i+1]-dataCopy[i-1])*(dataCopy[i+1]-dataCopy[i]))
+            vertex = -b/2/a
+            if dataCopy[i-1] < vertex < dataCopy[i+1]:
+                if newBoundaryBool:
+                    boundaries[-1].append(vertex)
+                else:
+                    boundaries.append([vertex])
+                    newBoundaryBool = True
+            else:
+                newBoundaryBool= False
+        else:
+            newBoundaryBool = False        
+    if newBoundaryBool:
+        boundaries[-1].append(dataCopy[-1]+1)
+    else:
+        boundaries.append([dataCopy[-1]+1])
+    for i in range(len(boundaries)):
+        boundaries[i] = np.average(boundaries[i])
+    
+    #Initial components are separated by the our initial
+    #boundaries. Be aware that components must be of certain size,
+    #or they will be integrated into the closest component.
+    components = []
+    componentNumber = 0
+    boundaryLeftIndex = 0
+    boundaryRightIndex = 0
+    for i in range(N):
+        if dataCopy[i] > boundaries[componentNumber+1]:
+            components.append([boundaryLeftIndex,boundaryRightIndex])
+            boundaryLeftIndex = i
+            componentNumber += 1
+        boundaryRightIndex = i
+    components.append([boundaryLeftIndex,N])
+    if components[0][1]-components[0][0] < minComponentSize:
+        components[1][0] = components[0][0]
+        del components[0]
+    for index in range(len(components)-2,0,-1):
+        if components[index][1] - components[index][0] < minComponentSize:
+            if components[index+1][0]-components[index][1] < components[index][0]-components[index-1][1]:
+                components[index][1] = components[index+1][1]
+                del components[index+1]
+            else:
+                components[index-1][1] = components[index][1]
+                del components[index]
+    if components[-1][1] - components[-1][0] < minComponentSize:
+        components[-2][1] = components[-1][1]
+        del components[-1]
+    #Number of components is labeled as integer <M>
+    M = len(components)
+    
+    #Inital components provide initial location, scale,
+    #and skewness parameters useful for the EM algorithm
+    theta = [[],[],[],[]]
+    for component in components:
+        theta[0].append(np.mean(dataCopy[component[0]:component[1]]))
+        theta[1].append(np.std(dataCopy[component[0]:component[1]]))
+        theta[2].append(stats.skew(dataCopy[component[0]:component[1]]))
+        theta[3].append((component[1]-component[0])/N)
+    theta = np.array(theta)
+    theta[3] /= np.sum(theta[3])
+    
+    #This implementation of the EM algorithm is slightly different,
+    #since it uses a single Quasi-Newton-Raphson Minimization
+    #Iteration (BFGS) per EM iteration. This requires some storing
+    #of the inverse Hessian and gradF for each component
+    gamma = np.array([stats.skewnorm.pdf(dataCopy,
+                                         theta[2][j],
+                                         loc=theta[0][j],
+                                         scale=abs(theta[1][j])) for j in range(M)])
+    for j in range(M):
+        gamma[j,:] *= theta[3][j]
+    for i in range(N):
+        gamma[:,i] /= np.sum(gamma[:,i])
+    
+    loglikelihoods = []
+    Hinv = []
+    gradF = []
+    
+    for j in range(M):
+        loglikelihoods.append(lambda param:np.dot(-gamma[j],
+                                                  np.log(2)-np.log(abs(param[1]))+
+                                                  stats.norm.logpdf(dataCopy,
+                                                                    loc=param[0],
+                                                                    scale=abs(param[1]))+
+                                                  stats.norm.logcdf(param[2]*(dataCopy-param[0])/abs(param[1]))))
+        try:
+            Hinv.append(np.linalg.inv(mtb.hessian(loglikelihoods[j],theta[:3,j])))
+        except Exception:
+            Hinv.append(np.identity(3))
+        gradF.append(mtb.grad(loglikelihoods[j],theta[:3,j]))
+    
+    count = 0
+    convergenceBool = False
+    while not convergenceBool and count < maxIter:
+        convergenceBool = True
+        pi = np.mean(gamma,axis=1)
+        if convergenceBool and (np.absolute(pi-theta[3]) > errTol).any():
+            convergenceBool = False
+        theta[3] = pi
+        
+        for j in range(M):
+            #Algorithm can also run less intensive Gradient Descent
+            #gradF = -mtb.grad(loglikelihoods[j],theta[:3,j])
+            #alpha = otb.multi_line_search(loglikelihoods[j],theta[:3,j],gradF)
+            #gradF *= alpha
+            #if convergenceBool and (np.absolute(gradF) > errTol).any():
+            #    convergenceBool = False
+            #theta[:3,j] += gradF
+            
+            deltaTheta = -np.dot(Hinv[j],gradF[j])
+            alpha = otb.multi_line_search(loglikelihoods[j],theta[:3,j],deltaTheta)
+            deltaTheta *= alpha
+            if convergenceBool and (np.absolute(deltaTheta) > errTol).any():
+                convergenceBool = False
+            theta[:3,j] += deltaTheta
+            deltaGrad = mtb.grad(loglikelihoods[j],theta[:3,j]) - gradF[j]
+            try:
+                Hinv[j] += (np.inner(deltaTheta,deltaGrad)+np.inner(deltaGrad,np.dot(Hinv[j],deltaGrad)))*np.outer(deltaTheta,deltaTheta)/np.inner(deltaTheta,deltaGrad)**2-(np.dot(Hinv[j],np.outer(deltaGrad,deltaTheta))+np.dot(np.outer(deltaTheta,deltaGrad),Hinv[j]))/np.inner(deltaTheta,deltaGrad)
+            except Exception:
+                Hinv[j] = np.identity(3)
+            gradF[j] += deltaGrad
+        
+        gamma = np.array([stats.skewnorm.pdf(dataCopy,
+                                         theta[2][j],
+                                         loc=theta[0][j],
+                                         scale=abs(theta[1][j])) for j in range(M)])
+        for j in range(M):
+            gamma[j,:] *= theta[3][j]
+        for i in range(N):
+            gamma[:,i] /= np.sum(gamma[:,i])
+        count += 1
+    
+    #Provides outcome of the algorithm
+    print("EM Algorithm took %i iterations to find data components"%count)
+    print()
+    for j in range(M):
+        print("Component %i of %i contains %0.2f%% of data:"%(j+1,M,theta[3][j]*100.0))
+        print("Predicted to be a Skewed Gaussian Model")
+        print("Location Parameter xi is %0.6f"%theta[0][j])
+        print("Scale Parameter omega is %0.6f"%theta[1][j])
+        print("Shape Parameter alpha is %0.6f"%theta[2][j])
+        delta = theta[2][j]/np.sqrt(1+theta[2][j]**2)
+        print("Mean is %0.6f"%(theta[0][j]+theta[1][j]*delta*np.sqrt(2/np.pi)))
+        print("Variance is %0.6f"%(theta[1][j]**2*(1-2*delta**2/np.pi)))
+        print("Skewness is %0.6f"%(((4-np.pi)*(delta*np.sqrt(2/np.pi))**3)/(2*np.sqrt(1-2*delta**2/np.pi)**3)))
+        print()
 
 def kMeans(data,k,errtol=0,maxiter=100,inform=True):
     #This method clusters data into k clusters using a k-Means Algorithm:
@@ -18,14 +435,12 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
     
     centroids = [random.choice(data) for i in range(k)]
     deltaCentroids = [np.inf for i in range(k)]
-    wcss = np.zeros(dim)
-    weights = np.random.random(dim)
-    weights /= weights.sum()
+    wcss = []
     counter = 0
     
     #Distance auxiliary function
     def distance(x,y):
-        return np.dot(weights,(x-y)**2)
+        return np.sum((x-y)**2)
     
     #Custom kdTree data structure, with attached cluster data
     class Cluster(object):
@@ -81,19 +496,25 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
 
         #After all the data has been resorted, new centroids are computed
         #and WCSS is computed element-wise
-        def recenter(self,wcss):
+        def recenter(self):
             try:
                 newCentroid = np.average(self.data,axis=0)
             except Exception:
                 newCentroid = random.choice(data)        
             centroids.append(newCentroid)
             deltaCentroids.append(distance(newCentroid,self.centroid))
-            wcss += np.sum([(value - newCentroid)**2 for value in self.data],axis = 0)
             
             if self.left is not None:
-                self.left.recenter(wcss)
+                self.left.recenter()
             if self.right is not None:
-                self.right.recenter(wcss)
+                self.right.recenter()
+        
+        def wcss(self):
+            wcss.append(np.sum([(value - self.centroid)**2 for value in self.data]))
+            if self.left is not None:
+                self.left.wcss()
+            if self.right is not None:
+                self.right.wcss()
         
         #Displays the information about a cluster
         def information(self):
@@ -116,30 +537,199 @@ def kMeans(data,k,errtol=0,maxiter=100,inform=True):
             clusterTree.insert(centroids[i])
         centroids = []
         deltaCentroids = []
-        wcss = np.zeros(dim)
         
         #Recalculates all the centroids
         for i in range(N):
             clusterTree.nearestNeighbor(data[i]).data.append(data[i])
-        clusterTree.recenter(wcss)
-        
-        #Recalculates all the weights
-        wcssTotal = sum(wcss)
-        for i in range(dim):
-            weights[i] = wcss[i]/wcssTotal
-        
-        counter += 1
+        clusterTree.recenter()
     
     #Displays the information about all the clusters
     if inform:
+        clusterTree.wcss()
+        wcss = sum(wcss)
         bcss = np.sum([[distance(centroid1,centroid2) for centroid2 in centroids] for centroid1 in centroids])
         if counter >= maxiter:
             print("Attention: program has reached its maximum number of iterations. Clustering may be inaccurate")
-        print("Clustering's Within-Cluster Sum of Squares metric: %0.3f"%wcssTotal)
+        print("Clustering's Within-Cluster Sum of Squares metric: %0.3f"%wcss)
         print("Clustering's Between-Cluster Sum of Squares metric: %0.3f"%bcss)
-        print("Clustering's Calinski-Harabasz Score: %0.3f"%((bcss*(N-k))/(wcssTotal*(k-1))))
-        print("Feature weights: %s"%weights)
+        print("Clustering's Calinski-Harabasz Score: %0.3f"%((bcss*(N-k))/(wcss*(k-1))))
         print()
         clusterTree.information()
 
     return centroids
+
+def hdbscan(data,k=5,minClusterSize=5,inform=True):
+    data = [np.asarray(value) for value in data]
+    try:
+        dim = len(data[0])
+    except TypeError:
+        dim = 1
+    
+    #Scanning for min and max values of data
+    if dim < 2:
+        minData = min(data)
+        maxData = max(data)
+    else:
+        minData = np.array([data[0][i] for i in range(dim)])
+        maxData = np.array([data[0][i] for i in range(dim)])
+        for value in data:
+            for i in range(dim):
+                if value[i] < minData[i]:
+                    minData[i] = value[i]
+                if value[i] > maxData[i]:
+                    maxData[i] = value[i]
+    
+    #Stores Mutual Reachability of each point
+    #Also sets up a k-nearest neighbor graph and stores it
+    #As a dictionary. The point is that Prim's algorithm is
+    #too expensive on a complete graph, which has (n-1)! edges
+    #for n vertices. Instead, a k nearest neighbor graph has
+    # edges, which is much less for large values of n
+    spatialIndex = stb.lsh(data,minData,maxData)
+    mutualReachability = [np.inf for i in range(len(data))]
+    graph = {i:[] for i in range(len(data))}
+    for i in range(len(data)):
+        neighbors = spatialIndex.query(data[i],k = k+1)[1:]
+        for neighbor in neighbors:
+            graph[neighbor].append(i)
+        graph[i]+=neighbors
+        mutualReachability[i] = np.sum((data[neighbors[-1]]-data[i])**2)
+        if len(neighbors) < k:
+            mutualReachability[i] *= pow(k/len(neighbors),1/dim)
+    
+    #Mutual Reachability metric
+    def distance(index1,index2):
+        return max(mutualReachability[index1],
+                   mutualReachability[index2],
+                   np.sum((data[index1]-data[index2])**2))
+    
+    #Running Prim's algorithm by using a minimum binary heap
+    #to store the current front of our BFS approach
+    visited = [False for value in data]
+    inQueue = [False for value in data]
+    lastV = 0
+    visited[lastV] = True
+    inQueue[lastV] = True
+    queueList = []
+    for index in graph[lastV]:
+        queueList.append(((index,
+                           distance(index,lastV),
+                           lastV)))
+        inQueue[index] = True
+    queue = stb.minHeap(queueList)
+    
+    E = []
+    while len(queue.queue) > 0:
+        res = queue.extractMin()
+        lastV = res[0]
+        E.append((res[0],res[2],res[1]))
+        visited[lastV] = True
+        inQueue[lastV] = False
+        for neighborIndex in graph[lastV]:
+            if not visited[neighborIndex]:
+                if inQueue[neighborIndex]:
+                    queue.decreaseKey(neighborIndex,
+                                      distance(neighborIndex,lastV),
+                                      newExtra = lastV)
+                else:
+                    queue.insert(neighborIndex,
+                                 distance(neighborIndex,lastV),
+                                 extra = lastV)
+                    inQueue[neighborIndex] = True
+    
+    #Defining clusters as a fancy dictionary that can be split
+    #Heirarchy is recorded for maximization of Excess of Mass
+    #calculations
+    class cluster(object):
+        def __init__(self,clusterGraph,birth):
+            self.clusterGraph = clusterGraph
+            self.birth = birth
+            self.eom = 0
+            self.parent = None
+            self.children = None
+            self.isDone = False
+        
+        def split(self,e):
+            if not self.isDone:
+                subclusterGraph = {e[0]:self.clusterGraph[e[0]]}
+                subclusterGraph[e[0]].remove(e[1])
+                del self.clusterGraph[e[0]]
+                self.clusterGraph[e[1]].remove(e[0])
+                
+                front = [e[0]]
+                while len(front) > 0:
+                    newFront = []
+                    for index in front:
+                        for neighborIndex in subclusterGraph[index]:
+                            if neighborIndex not in subclusterGraph:
+                                subclusterGraph[neighborIndex] = self.clusterGraph[neighborIndex]
+                                del self.clusterGraph[neighborIndex]
+                                newFront.append(neighborIndex)
+                    front = newFront
+                    
+                if len(subclusterGraph) < minClusterSize:
+                    if len(self.clusterGraph) < minClusterSize:
+                        self.eom += (len(subclusterGraph)+len(self.clusterGraph))*(1/e[2] - 1/self.birth)
+                        for index in subclusterGraph.keys():
+                            self.clusterGraph[index] = subclusterGraph[index]
+                        self.clusterGraph[e[0]].append(e[1])
+                        self.clusterGraph[e[1]].append(e[0])
+                        self.isDone = True
+                    else:
+                        self.eom += len(subclusterGraph)*(1/e[2] - 1/self.birth)
+                else:
+                    if len(self.clusterGraph) < minClusterSize:
+                        self.eom += len(self.clusterGraph)*(1/e[2] - 1/self.birth)
+                        self.clusterGraph = subclusterGraph
+                    else:
+                        self.eom += (len(subclusterGraph)+len(self.clusterGraph))*(1/e[2] - 1/self.birth)
+                        self.children = [cluster(subclusterGraph,e[2]),
+                                         cluster(self.clusterGraph,e[2])]
+                        for child in self.children:
+                            child.parent = self
+                        self.isDone = True
+            else:
+                if self.children is not None:
+                    if e[0] in self.children[0].clusterGraph:
+                        self.children[0].split(e)
+                    elif e[0] in self.children[1].clusterGraph:
+                        self.children[1].split(e)
+        
+        def maximizeEOM(self):
+            if self.children is None:
+                return [self.eom,[list(self.clusterGraph.keys())]]
+            else:
+                childrenEOM = 0
+                childrenClusters = []
+                for child in self.children:
+                    childEOM,childCluster = child.maximizeEOM()
+                    childrenEOM += childEOM
+                    childrenClusters.extend(childCluster)
+                if self.eom >= childrenEOM:
+                    return [self.eom,[list(self.clusterGraph.keys())]]
+                else:
+                    return [childrenEOM,childrenClusters]
+    
+    #Edges are sorted in ascending order, and then analyzed one at
+    #a time so that the clusters are split appropriately
+    E.sort(key=lambda e:e[2])
+    graph = {i:[] for i in range(len(data))}
+    for e in E:
+        graph[e[0]].append(e[1])
+        graph[e[1]].append(e[0])
+    rootCluster = cluster(graph,np.sqrt(np.sum((maxData-minData)**2)))
+    for i in range(len(E)):
+        rootCluster.split(E.pop(-1))
+        
+    #Prints out information concerning the clustering if desired,
+    #otherwise just returns the result
+    if inform:    
+        eom,clusters = rootCluster.maximizeEOM()
+        print("Excess of Mass of Clustering: %0.3f"%eom)
+        for i in range(len(clusters)):
+            print("Cluster %i:"%(i+1))
+            print("Number of Points: %i"%len(clusters[i]))
+        print("Percentage of data classified as noise: %0.2f%%"%((len(data)-sum([len(cluster) for cluster in clusters]))/len(data)*100))
+    else:
+        _,clusters = rootCluster.maximizeEOM()
+    return [[data[index] for index in cluster] for cluster in clusters]
